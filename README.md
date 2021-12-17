@@ -2,9 +2,9 @@
 Rule Processor Y is a next-gen Rule processor with multibyte character support. It applies rules to wordlists in order to transform them in whichever way the user pleases.
 The key feature of this ruleprocessor is that it allows a user to quickly do multibyte or multi-character replacements such as replacing the e with é or the other way around for normalization of wordlists.
 
-## Installation Requirements
+## Requirements
 ```
-apt install <to be written>
+sudo apt-get install build-essential libboost-all-dev
 ```
 
 ## Quickstart
