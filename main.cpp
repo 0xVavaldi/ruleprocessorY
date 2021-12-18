@@ -17,19 +17,20 @@ inline bool file_exists (const std::string& file_name) {
 }
 
 
-static void show_usage(const std::string& name) {
-    std::cerr << "Usage: " << name << " <option(s)>\n"
+static void show_usage() {
+    std::cerr << "Usage: ruleprocessorY <option(s)>\n"
     << "Options:\n"
     << "\t-h,--help\t\t\tShow this help message\n"
     << "\t-w,--wordlist FILE_NAME\t\tSpecify the input wordlist path\n"
-    << "\t-r,--rules FILE_NAME\t\tSpecify the input rules path"
+    << "\t-r,--rules FILE_NAME\t\tSpecify the input rules path\n\n"
+    << "Version: 0.6"
     << std::endl;
 }
 
 
 int main(int argc, const char *argv[]) {
     if (argc < 2) {
-        show_usage(argv[0]);
+        show_usage();
         return 1;
     }
 
@@ -63,18 +64,13 @@ int main(int argc, const char *argv[]) {
         i++;
     }
 
-    if (version) {
-        fprintf(stdout, "Version: 0.5.1\n");
-        return 1;
-    }
-
     if(help) {
-        show_usage(argv[0]);
+        show_usage();
         return 1;
     }
 
     if(input_wordlist.empty() || input_rules.empty()) {
-        show_usage(argv[0]);
+        show_usage();
         return 1;
     }
 
@@ -97,7 +93,7 @@ int main(int argc, const char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(stderr, "There are %lu rules.\n", parsed_rules.size());
+    fprintf(stderr, "There are %lu rules.\n", (unsigned long)parsed_rules.size());
     int rule_set_counter{ 0 };
 
     // Loop through all rules:
@@ -128,7 +124,7 @@ int main(int argc, const char *argv[]) {
                 Rule single_rule(static_cast<char>(rule), rule_value, rule_value_2);
                 rule_set.push_back(single_rule);
             } else {
-                fprintf(stderr, "Parse error: object %d is too long. 1-3 characters expected, received: %lu\n", rule_set_counter, single_rule_set.size());
+                fprintf(stderr, "Parse error: object %d is too long. 1-3 characters expected, received: %lu\n", rule_set_counter,  (unsigned long)single_rule_set.size());
                 exit(EXIT_FAILURE);
             }
             rule_objects.push_back(rule_set);
@@ -152,7 +148,7 @@ int main(int argc, const char *argv[]) {
 
             if (rule.size() != 1) {
                 // Error because Rule class only accepts a char right now.
-                fprintf(stderr, "Parse warning: Ignoring rule: \"%s\" was expecting a 1 character rule. %lu given.", rule.c_str(), rule.size());
+                fprintf(stderr, "Parse warning: Ignoring rule: \"%s\" was expecting a 1 character rule. %lu given.", rule.c_str(),  (unsigned long)rule.size());
             }
 
             else if (rule_values.size() == 1) {
@@ -168,7 +164,7 @@ int main(int argc, const char *argv[]) {
                 rule_set.push_back(single_rule);
             }
             else {
-                fprintf(stderr, "Parse error: object %d contain a rule with too many 'values'. an array of 1 to 3 (string) values expected. %lu given\n", rule_set_counter, rule_values.size());
+                fprintf(stderr, "Parse error: object %d contain a rule with too many 'values'. an array of 1 to 3 (string) values expected. %lu given\n", rule_set_counter,  (unsigned long)rule_values.size());
                 exit(EXIT_FAILURE);
             }
         }
