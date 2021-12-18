@@ -4,7 +4,7 @@ The key feature of this ruleprocessor is that it allows a user to quickly do mul
 
 ## Requirements
 ```
-sudo apt-get install build-essential libboost-all-dev cmake git
+sudo apt-get install build-essential cmake git
 ```
 
 ## Quickstart
