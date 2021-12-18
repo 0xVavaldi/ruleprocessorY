@@ -47,7 +47,7 @@ int main(int argc, const char *argv[])
             std::string input_rules = vm["rules"].as<std::string>();
             json parsed_rules;
             if(!file_exists(input_file)) {
-                fprintf(stderr, "Wordlist file error: \"%s\" does not exist.\n", input_rules.c_str());
+                fprintf(stderr, "Wordlist file error: \"%s\" does not exist.\n", input_file.c_str());
                 exit(EXIT_FAILURE);
             }
             if(!file_exists(input_rules)) {
