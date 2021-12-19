@@ -34,7 +34,7 @@ Rules are always stored inside a json array; this will be referred to as the 'ro
 ]
 ```
 
-The alternative and primary method rules will be defined it is by putting them in individual arrays. The main construction of the list is as follows:
+The alternative and primary method rules will be defined in, is by putting them in individual arrays. The main construction of the list is as follows:
 - 1 'root array' to contain all rules.
 - 1 array or string containing a series of rules or a single rule respectively
 - 1 or multiple arrays - each containing a rule to be used on a plaintext candidate
@@ -55,9 +55,9 @@ Below is a sample file with comments explaining the construct in an example.
     ],  # The old format would be writing "s12 u"
     [  # the next example shows more of the possibilities that are new with this tool
         ["$","123456abcdef"],  # Append a whole series of characters
-        ["é","e"], # a series of rules to normalize "e" characters after having appended 123456abcdef to the rule.
-        ["è","e"],
-        ["ê","e"]
+        ["s","é","e"], # a series of rules to normalize "e" characters after having appended 123456abcdef to the rule.
+        ["s","è","e"],
+        ["s","ê","e"]
     ]
 ]
 ```
