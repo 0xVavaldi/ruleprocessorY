@@ -23,7 +23,7 @@ static void show_usage() {
     << "\t-h,--help\t\t\tShow this help message\n"
     << "\t-w,--wordlist FILE_NAME\t\tSpecify the input wordlist path\n"
     << "\t-r,--rules FILE_NAME\t\tSpecify the input rules path\n\n"
-    << "Version: 0.6"
+    << "Version: 0.7"
     << std::endl;
 }
 
@@ -36,7 +36,6 @@ int main(int argc, const char *argv[]) {
 
     std::string input_wordlist;
     std::string input_rules;
-    bool version{false};
     bool help{false};
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--wordlist" || std::string(argv[i]) == "-w") {
@@ -46,9 +45,6 @@ int main(int argc, const char *argv[]) {
                 std::cerr << argv[i] << " option requires an argument." << std::endl;
                 return -1;
             }
-        }
-        if (std::string(argv[i]) == "--version" || std::string(argv[i]) == "-v") {
-            version = true;
         }
         if (std::string(argv[i]) == "--rule" || std::string(argv[i]) == "-r") {
             if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 1) {
