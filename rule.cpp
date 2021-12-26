@@ -50,6 +50,7 @@ bool Rule::validate_rule() const {
         case '_':
         case '\'':
         case '!':
+        case '/':
             if(rule_value_1.empty() || !rule_value_2.empty()) { // Binary operations should not have 2 rule values.
                 return false;
             }
@@ -334,6 +335,13 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
         case '!':  // Reject plains which contain rule_value_1
             return [rule_value_1=rule_value_1](std::string& plaintext){
                 if (plaintext.find(rule_value_1) != std::string::npos) {
+                    plaintext = "";
+                }
+            };
+
+        case '/':  // Reject plains which do not contain char X
+            return [rule_value_1=rule_value_1](std::string& plaintext){
+                if (plaintext.find(rule_value_1) == std::string::npos) {
                     plaintext = "";
                 }
             };

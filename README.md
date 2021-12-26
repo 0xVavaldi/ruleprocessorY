@@ -71,7 +71,7 @@ Below is a sample file with comments explaining the construct in an example.
 ```
 
 ### Note on duplicate candidates
-Candidates matching `:` are never printed unless specifically specified. This is done to prevent duplicates. Example: Using `l` will only print candidates that have undergone a change. This can not be wished when working with rejection rules. In that case a : must be added as a first rule. An example is shown below where the goal is to reject all candidates containing the word "test". To match case toggled candidates the l rule is added before the match test. To ensure all candidates are printed and not just rules with uppercases the `:` rule is added, which will force all candidates to be printed.
+Candidates matching the original word are never printed unless the `:` rule is specified. This is done to prevent duplicates. Example: Using `l` will only print candidates that have an uppercase character and as a result are different from the original plaintext. This can be unfavorable when working with rejection rules. In that case a `:` must be added as a first rule. An example is shown below where the goal is to reject all candidates containing the word "test". To match case toggled candidates the `l` rule is added before the match test. To ensure all candidates are printed and not just rules with uppercase the `:` rule is added, which will force all candidates to be printed.
 ```json
 [
     [
