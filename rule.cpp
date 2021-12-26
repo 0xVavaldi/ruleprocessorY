@@ -33,6 +33,7 @@ bool Rule::validate_rule() const {
         case '}':
         case '[':
         case ']':
+        case 'q':
             if(!(rule_value_1.empty() && rule_value_2.empty())) { // Unary operations should not have rule values.
                 return false;
             }
@@ -106,6 +107,14 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
                 }
             };
 
+        case 'q':
+            return [](std::string& plaintext){
+                for(std::string::size_type i = 0; i < plaintext.size(); ++i) {
+                    plaintext.insert(i+1, 1, plaintext[i]);
+                    i++;
+                }
+            };
+
         case 'r':
             return [](std::string& plaintext){
                 reverse(plaintext.begin(), plaintext.end());
@@ -160,7 +169,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             };
 
         case 'p':
-            int_value_1 = stoi(rule_value_1); // duplication count
+            int_value_1 = stoi(rule_value_1);
             return [duplicate_count=int_value_1](std::string& plaintext){
                 std::string copy = plaintext;
                 for(int i=0; i < duplicate_count; i++) {
