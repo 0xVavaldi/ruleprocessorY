@@ -190,19 +190,24 @@ int main(int argc, const char *argv[]) {
     fin.rdbuf()->pubsetbuf(stream_buffer, sizeof(stream_buffer)); // set buffer for reading characters
     fin.open(input_wordlist);
     while(std::getline(fin, file_line)) {
-        if(file_line.empty()) {
-            continue;
-        }
+//        if(file_line.empty()) {
+//            continue;
+//        }
         for(std::vector<Rule>& rule_set : rule_objects) {
             if(rule_set[0].rule == ':') {
-                std::cout << file_line << '\n';
+                for(Rule& rule_item : rule_set) {
+                    rule_item.process(file_line);
+                }
+                if (!file_line.empty()) {
+                    std::cout << file_line << '\n';
+                }
                 continue;
             }
             std::string new_plain { file_line };
             for(Rule& rule_item : rule_set) {
                 rule_item.process(new_plain);
             }
-            if(file_line != new_plain) {
+            if(file_line != new_plain && !new_plain.empty()) {
                 std::cout << new_plain << '\n';
             }
         }

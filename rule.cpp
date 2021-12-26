@@ -45,7 +45,11 @@ bool Rule::validate_rule() const {
         case 'z':
         case '$':
         case '^':
+        case '<':
+        case '>':
+        case '_':
         case '\'':
+        case '!':
             if(rule_value_1.empty() || !rule_value_2.empty()) { // Binary operations should not have 2 rule values.
                 return false;
             }
@@ -300,12 +304,45 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
                     plaintext.erase(0, start_loc); // Delete from start to start of rule
                 }
             };
+
+        case '<':
+            int_value_1 = stoi(rule_value_1);
+            return [reject_count=int_value_1](std::string& plaintext){
+                if(reject_count < plaintext.size()) {
+                    return;
+                }
+                plaintext = "";
+            };
+
+        case '>':
+            int_value_1 = stoi(rule_value_1);
+            return [reject_count=int_value_1](std::string& plaintext){
+                if(reject_count > plaintext.size()) {
+                    return;
+                }
+                plaintext = "";
+            };
+
+        case '_':
+            int_value_1 = stoi(rule_value_1);
+            return [reject_count=int_value_1](std::string& plaintext){
+                if(reject_count == plaintext.size()) {
+                    plaintext = "";
+                }
+            };
+
+        case '!':  // Reject plains which contain rule_value_1
+            return [rule_value_1=rule_value_1](std::string& plaintext){
+                if (plaintext.find(rule_value_1) != std::string::npos) {
+                    plaintext = "";
+                }
+            };
     }
     return [](std::string& plaintext){};
 }
 
 void Rule::process(std::string& plaintext) {
-    rule_processor(plaintext);
+    return rule_processor(plaintext);
 }
 
 void Rule::display() const {

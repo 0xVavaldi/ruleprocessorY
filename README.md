@@ -58,6 +58,26 @@ Below is a sample file with comments explaining the construct in an example.
         ["s","é","e"], # a series of rules to normalize "e" characters after having appended 123456abcdef to the rule.
         ["s","è","e"],
         ["s","ê","e"]
+    ],
+    [
+        [":"], # Rejection rules on : require ":" to ALWAYS be first.
+        ["<", "6"] # Reject plains less than 6 characters
+    ],
+    [
+        ["q"], # duplicate every character. Test => TTeesstt
+        ["<", "6"] # Reject plains less than 6 characters after executing previous rule
+    ]
+]
+```
+
+### Note on duplicate candidates
+Candidates matching `:` are never printed unless specifically specified. This is done to prevent duplicates. Example: Using `l` will only print candidates that have undergone a change. This can not be wished when working with rejection rules. In that case a : must be added as a first rule. An example is shown below where the goal is to reject all candidates containing the word "test". To match case toggled candidates the l rule is added before the match test. To ensure all candidates are printed and not just rules with uppercases the `:` rule is added, which will force all candidates to be printed.
+```json
+[
+    [
+        [":"],
+        ["l"],
+        ["!", "test"]
     ]
 ]
 ```
