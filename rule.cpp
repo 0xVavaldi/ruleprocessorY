@@ -12,10 +12,9 @@ Rule::Rule(const char input_rule, const std::string& input_rule_value_1, const s
     rule_value_1 = input_rule_value_1;
     rule_value_2 = input_rule_value_2;
     rule_processor = build_rule_processor();
-//    bound_build_rule_processor = std::bind(&Rule::rule_processor, this);
     if(!validate_rule()) {
         fprintf(stderr, "Parse warning: rule \"%c%s%s\" is an invalid rule.\n", rule, rule_value_1.c_str(), rule_value_2.c_str());
-//        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     };
 }
 
@@ -59,6 +58,7 @@ bool Rule::validate_rule() const {
             }
         case 's':
         case 'S':
+        case 'x':
         case 'O':
         case 'i':
             if(rule_value_1.empty() || rule_value_2.empty()) {
@@ -271,6 +271,24 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
                     plaintext.erase(start_loc, plaintext.size()-start_loc); // Delete until end.
                 } else {
                     plaintext.erase(start_loc, delete_amount);
+                }
+            };
+
+        case 'x':
+            int_value_1 = stoi(rule_value_1); // start location
+            int_value_2 = stoi(rule_value_2); // delete amount
+            if(int_value_1 < 0 || int_value_2 < 0) break;
+
+            return [start_loc=int_value_1, keep_amount=int_value_2](std::string& plaintext){
+                if(start_loc > plaintext.size()-1) {
+                    return;
+                }
+
+                if((start_loc + keep_amount) <= plaintext.size()) {
+                    plaintext.erase(start_loc + keep_amount, plaintext.size());
+                    plaintext.erase(0, start_loc); // Delete from start to start of rule
+                } else {
+                    plaintext.erase(0, start_loc); // Delete from start to start of rule
                 }
             };
     }
