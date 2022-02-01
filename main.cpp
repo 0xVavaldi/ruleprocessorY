@@ -23,7 +23,7 @@ static void show_usage() {
     << "\t-h,--help\t\t\tShow this help message\n"
     << "\t-w,--wordlist FILE_NAME\t\tSpecify the input wordlist path\n"
     << "\t-r,--rules FILE_NAME\t\tSpecify the input rules path\n\n"
-    << "Version: 0.6"
+    << "Version: 0.7"
     << std::endl;
 }
 
@@ -36,7 +36,6 @@ int main(int argc, const char *argv[]) {
 
     std::string input_wordlist;
     std::string input_rules;
-    bool version{false};
     bool help{false};
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--wordlist" || std::string(argv[i]) == "-w") {
@@ -46,9 +45,6 @@ int main(int argc, const char *argv[]) {
                 std::cerr << argv[i] << " option requires an argument." << std::endl;
                 return -1;
             }
-        }
-        if (std::string(argv[i]) == "--version" || std::string(argv[i]) == "-v") {
-            version = true;
         }
         if (std::string(argv[i]) == "--rule" || std::string(argv[i]) == "-r") {
             if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 1) {
@@ -194,19 +190,24 @@ int main(int argc, const char *argv[]) {
     fin.rdbuf()->pubsetbuf(stream_buffer, sizeof(stream_buffer)); // set buffer for reading characters
     fin.open(input_wordlist);
     while(std::getline(fin, file_line)) {
-        if(file_line.empty()) {
-            continue;
-        }
+//        if(file_line.empty()) {
+//            continue;
+//        }
         for(std::vector<Rule>& rule_set : rule_objects) {
             if(rule_set[0].rule == ':') {
-                std::cout << file_line << '\n';
+                for(Rule& rule_item : rule_set) {
+                    rule_item.process(file_line);
+                }
+                if (!file_line.empty()) {
+                    std::cout << file_line << '\n';
+                }
                 continue;
             }
             std::string new_plain { file_line };
             for(Rule& rule_item : rule_set) {
                 rule_item.process(new_plain);
             }
-            if(file_line != new_plain) {
+            if(file_line != new_plain && !new_plain.empty()) {
                 std::cout << new_plain << '\n';
             }
         }
