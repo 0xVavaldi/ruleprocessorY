@@ -60,6 +60,7 @@ bool Rule::validate_rule() const {
         case 's':
         case 'S':
         case 'O':
+        case 'o':
         case 'i':
             if(rule_value_1.empty() || rule_value_2.empty()) {
                 return false;
