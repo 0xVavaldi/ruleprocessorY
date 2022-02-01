@@ -144,7 +144,7 @@ int main(int argc, const char *argv[]) {
 
             if (rule.size() != 1) {
                 // Error because Rule class only accepts a char right now.
-                fprintf(stderr, "Parse warning: Ignoring rule: \"%s\" was expecting a 1 character rule. %lu given.", rule.c_str(),  (unsigned long)rule.size());
+                fprintf(stderr, "Parse warning: Ignoring rule: \"%s\" was expecting a 1 character rule. %lu given.\n", rule.c_str(),  (unsigned long)rule.size());
             }
 
             else if (rule_values.size() == 1) {
