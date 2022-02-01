@@ -157,7 +157,9 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
 
         case ']':
             return [](std::string& plaintext){
-                plaintext.erase(plaintext.size()-1, 1);
+		if(plaintext.size() >= 1) {
+                    plaintext.erase(plaintext.size()-1, 1);
+                }
             };
 
         case 'T':
@@ -279,7 +281,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(int_value_1 < 0 || int_value_2 < 0) break;
 
             return [start_loc=int_value_1, delete_amount=int_value_2](std::string& plaintext){
-                if(start_loc > plaintext.size()-1) {
+                if(start_loc > plaintext.size()-1 || plaintext.size() == 0) {
                     return;
                 }
                 if(start_loc + delete_amount > plaintext.size()) {
