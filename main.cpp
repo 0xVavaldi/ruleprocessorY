@@ -97,7 +97,6 @@ int main(int argc, const char *argv[]) {
         }
     }
 
-
     fprintf(stderr, "There are %lu rules.\n", (unsigned long)parsed_rules.size());
     int rule_set_counter{ 0 };
 
@@ -225,6 +224,7 @@ int main(int argc, const char *argv[]) {
             rule_objects.push_back(rule_set);
         }
     }
+    
     // Enumerate rules
     std::ifstream fin_test(input_wordlist);
     std::string file_line;
