@@ -14,7 +14,7 @@ Rule::Rule(const char input_rule, const std::string& input_rule_value_1, const s
     rule_processor = build_rule_processor();
     if(!validate_rule()) {
         fprintf(stderr, "Parse warning: rule \"%c%s%s\" is an invalid rule.\n", rule, rule_value_1.c_str(), rule_value_2.c_str());
-        exit(EXIT_FAILURE);
+//        exit(EXIT_FAILURE);
     };
 }
 
@@ -33,6 +33,8 @@ bool Rule::validate_rule() const {
         case '}':
         case '[':
         case ']':
+        case 'k':
+        case 'K':
         case 'q':
             if(!(rule_value_1.empty() && rule_value_2.empty())) { // Unary operations should not have rule values.
                 return false;
@@ -124,6 +126,22 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
         case 'r':
             return [](std::string& plaintext){
                 reverse(plaintext.begin(), plaintext.end());
+            };
+
+        case 'k':
+            return [](std::string& plaintext){
+                if(plaintext.length() < 2) return;
+                char i = plaintext[0];
+                plaintext[0] = plaintext[1];
+                plaintext[1] = i;
+            };
+
+        case 'K':
+            return [](std::string& plaintext){
+                if(plaintext.length() < 2) return;
+                char i = plaintext.back();
+                plaintext[plaintext.length() - 1] = plaintext[plaintext.length() - 2];
+                plaintext[plaintext.length() - 2] = i;
             };
 
         case 'd':
