@@ -213,7 +213,7 @@ void process_stage2_thread(const std::vector<std::string>& test_words) {
 
         for(auto rule_set : rule_buffer) {
             // Create PowerSet
-            double pow_set_size = pow(2, rule_set.size()-1);
+            double pow_set_size = pow(2, rule_set.size());
             int counter, j;
             bool found_new = false;
 
