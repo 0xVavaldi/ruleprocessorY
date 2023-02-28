@@ -84,7 +84,6 @@ std::string convert_from_hashcat(std::string rule) {
     std::set<char> triple_wide = { 's', 'S', 'x', 'O', 'o', 'i', '*', '3' };
     std::string formatted_rule;
     int offset;
-    int length;
     char baseRule;
     formatted_rule = "";
 
@@ -130,7 +129,7 @@ std::string convert_from_hashcat(std::string rule) {
             offset = 254;
             // error if the baseRule is unknown
         else {
-            std::cout << "Unknown rule format: " << baseRule << ':' << rule;
+            std::cerr << "Unknown rule format: " << baseRule << ':' << rule << std::endl;
             offset = 254;
         }
     }
@@ -315,9 +314,9 @@ void process_stage3_thread(std::vector<std::vector<Rule>>& all_rules, const std:
         for (long long rule_iterator: buffer) {
             std::vector<Rule> rule_set = all_rules[rule_iterator];
             if(all_rules.size() < 2) { // Skip if too small
-                std::unique_lock<std::mutex> lock_match(result_rule_mutex); // Lock
+                std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                 good_rule_objects.emplace_back(rule_set);
-                lock_match.unlock();
+                new_lock.unlock();
                 continue;
             }
 
@@ -480,9 +479,9 @@ void process_stage3_thread_slow(std::vector<std::vector<Rule>>& all_rules, std::
         for (long long rule_iterator: buffer) {
             std::vector<Rule> rule_set = all_rules[rule_iterator];
             if(all_rules.size() < 2) { // Skip if too small
-                std::unique_lock<std::mutex> lock_match(result_rule_mutex); // Lock
+                std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                 good_rule_objects.emplace_back(rule_set);
-                lock_match.unlock();
+                new_lock.unlock();
                 continue;
             }
 
@@ -650,7 +649,7 @@ void process_stage3_thread_slow(std::vector<std::vector<Rule>>& all_rules, std::
 
             // default behaviour if nothing matches and it's unique
             if (matches_none) {
-                std::unique_lock<std::mutex> lock_match(result_rule_mutex); // Lock
+                std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                 if(optimize_debug) {
                     std::cout << "Kept new:\t";
                     for (int j = 0; j < rule_set.size(); j++) {
@@ -660,7 +659,7 @@ void process_stage3_thread_slow(std::vector<std::vector<Rule>>& all_rules, std::
                     std::cout << std::endl;
                 }
                 good_rule_objects.emplace_back(rule_set);
-                lock_match.unlock();
+                new_lock.unlock();
             }
         }
     }
@@ -841,9 +840,8 @@ int main(int argc, const char *argv[]) {
                         replace(raw_rule_part, "\xFF\xFF", "/"); // Fix escaped \/ to /
                     }
 
-
                     rule_value = raw_rule_parts[1];
-                    rule_value_2 = raw_rule_parts[2];
+                    rule_value_2 = (raw_rule_parts.size() == 2) ? "" : raw_rule_parts[2];
                     Rule single_rule(static_cast<char>(rule), rule_value, rule_value_2);
                     rule_set.push_back(single_rule);
                 } else {
@@ -1007,6 +1005,7 @@ int main(int argc, const char *argv[]) {
                     condition_var.notify_one();
                     std::this_thread::sleep_for(std::chrono::milliseconds(20));
                 }
+
                 if (progress_counter == 1 || progress_counter % step_counter == 0 || progress_counter == rule_objects.size()) {
                     std::cerr << "\r" << std::flush;
                     std::cerr << "[";

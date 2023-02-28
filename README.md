@@ -11,6 +11,7 @@ sudo apt-get install build-essential cmake git
 ```
 
 ## Quickstart
+If you receive an error regarding your cmake version, edit CMakeLists.txt and lower the cmake_minimum_required to match your version, this will generally not cause an issue. 
 ```
 git clone https://github.com/TheWorkingDeveloper/ruleprocessorY
 cd ruleprocessorY
@@ -21,63 +22,46 @@ make
 ```
 
 ## Rule writing
-Rules are always stored inside a json array; this will be referred to as the 'root array'. Within this array, strings can be placed with the standard rules you might be familiar with in Hashcat (https://hashcat.net/wiki/doku.php?id=rule_based_attack). **This does not allow for multiple rules to be executed on the same plain**. An example is shown below:
-
-```json
-[
-    "c",
-    "u",
-    "l",
-    "$1",
-    "$2",
-    "^a"
-]
+Rules are stored using a tab separated format (TSV), which is CSV, but with tabs; Within each line you can utilize the standard rules you might be familiar with in Hashcat (https://hashcat.net/wiki/doku.php?id=rule_based_attack). An example is shown below:
+```tsv
+c
+u   $1  $2  $3
+l
+$1  $2
+$2  $0  $0  $0
+^a  ^m
 ```
 
-The alternative and primary method rules will be defined in, is by putting them in individual arrays. The main construction of the list is as follows:
-- 1 'root array' to contain all rules.
-- 1 array or string containing a series of rules or a single rule respectively
-- 1 or multiple arrays - each containing a rule to be used on a plaintext candidate
-- 1, 2, 3 strings depending on the rule containing the type and values used for the rule.
+Additionally, we support multi-character rules. Allowing the appending, prepending or replacing of multiple characters. To do this we utilize the / delimiter, similar to some unix tools.
+A known issue is being unable to use the / character. This is a planned feature where we will make use of $HEX[]
+Below is a sample file with comments explaining the construct in an example. 
+```tsv
+l   $2022
+u   $2000
+^prefix     $suffix
+s/a/4   sa@     # this is two different formats replacing one character with another, both are supported
+s/alpha/beta
+o0beta
+o/0/beta
+```
 
-Below is a sample file with comments explaining the construct in an example.
-```
-[ # Main Root array
-    "c",  # Example of a string rule using the old style - capitalizing the candidate
-    "u",  # Another example of the old style converting the candidate to uppercase
-    [  # List containing one rule to be used on each candidate
-        ["s", "A", "C"]  # Replace all "A" characters with "C"
-    ],
-    "sAC"  # Perform the EXACT same operation as above in the old format, a short version of writing it.
-    [
-        ["s", "1", "2"],  # Replace all 1 characters with 2
-        ["u"]  # Convert all characters to uppercase (after converting 1 to 2)
-    ],  # The old format would be writing "s12 u"
-    [  # the next example shows more of the possibilities that are new with this tool
-        ["$","123456abcdef"],  # Append a whole series of characters
-        ["s","é","e"], # a series of rules to normalize "e" characters after having appended 123456abcdef to the rule.
-        ["s","è","e"],
-        ["s","ê","e"]
-    ],
-    [
-        [":"], # Rejection rules on : require ":" to ALWAYS be first.
-        ["<", "6"] # Reject plains less than 6 characters
-    ],
-    [
-        ["q"], # duplicate every character. Test => TTeesstt
-        ["<", "6"] # Reject plains less than 6 characters after executing previous rule
-    ]
-]
-```
+### Hashcat cross-comptability
+Finally, using the --hashcat-input flag we support hashcat formatted rules (space/no delimiter). This will automatically attempt to parse the rules and convert them into the TSV format.
+In doing so it will replace tabs with \x90 and spaces with \x20. Hashcat supports this notation and the rules will be cross compatible if you were to replace all tabs in the output file with spaces. (or removing tabs entirely).
 
 ### Note on duplicate candidates
 Candidates matching the original word are never printed unless the `:` rule is specified. This is done to prevent duplicates. Example: Using `l` will only print candidates that have an uppercase character and as a result are different from the original plaintext. This can be unfavorable when working with rejection rules. In that case a `:` must be added as a first rule. An example is shown below where the goal is to reject all candidates containing the word "test". To match case toggled candidates the `l` rule is added before the match test. To ensure all candidates are printed and not just rules with uppercase the `:` rule is added, which will force all candidates to be printed.
-```json
-[
-    [
-        [":"],
-        ["l"],
-        ["!", "test"]
-    ]
-]
+```tsv
+:
+l
+!test
+```
+
+
+## Rule Optimizing
+Rules generated or used by hashcat can contain contradictions or operations that do not make sense. RuleProcessorY is capable of cleaning up your rules and structuring it out for you. In total we current support 3 forms of optimization. Starting off we can look at some operations that 'do nothing', we refer to this as a no-op (no-operation). Using the --optimize-no-op we remove these. 
+```tsv
+T0  T0
+$1  ]
+^1  [
 ```

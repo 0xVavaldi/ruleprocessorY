@@ -499,7 +499,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(int_value_1 < 0) break;
 
             return [offset=int_value_1, replace_value=rule_value_2](std::string& plaintext){
-                if(offset > plaintext.size()-1 || plaintext.empty()) {
+                if((offset+replace_value.size()-1) > plaintext.size()-1 || plaintext.empty()) {
                     return;
                 }
                 for(int i=0; i < replace_value.size(); i++) {
