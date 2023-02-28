@@ -447,12 +447,12 @@ void process_stage3_thread(std::vector<std::vector<Rule>>& all_rules, const std:
             if (matches_none) {
                 std::unique_lock<std::mutex> lock_match(result_rule_mutex); // Lock
                 if(optimize_debug) {
-                    std::cout << "Kept new:\t";
-                    for (int j = 0; j < rule_set.size(); j++) {
-                        rule_set[j].print();
-                        if (j != rule_set.size() - 1) std::cout << '\t';
-                    }
-                    std::cout << std::endl;
+//                    std::cout << "Kept new:\t";
+//                    for (int j = 0; j < rule_set.size(); j++) {
+//                        rule_set[j].print();
+//                        if (j != rule_set.size() - 1) std::cout << '\t';
+//                    }
+//                    std::cout << std::endl;
                 }
                 good_rule_objects.emplace_back(rule_set);
                 lock_match.unlock();
@@ -516,7 +516,7 @@ void process_stage3_thread_slow(std::vector<std::vector<Rule>>& all_rules, std::
                             compare_rule_set_output.push_back(std::move(new_plain));
                         }
                     }
-                    // Compare output from ruleset with comparison ruleset and if matches, do not save rule (i.e. delete it
+                    // Compare output from ruleset with comparison ruleset and if matches, do not save rule (i.e. delete it)
                     if (rule_set_output == compare_rule_set_output) {
                         // if good_rule_objects contains rule_set -> skip
                         matches_none = false;
@@ -651,12 +651,12 @@ void process_stage3_thread_slow(std::vector<std::vector<Rule>>& all_rules, std::
             if (matches_none) {
                 std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                 if(optimize_debug) {
-                    std::cout << "Kept new:\t";
-                    for (int j = 0; j < rule_set.size(); j++) {
-                        rule_set[j].print();
-                        if (j != rule_set.size() - 1) std::cout << '\t';
-                    }
-                    std::cout << std::endl;
+//                    std::cout << "Kept new:\t";
+//                    for (int j = 0; j < rule_set.size(); j++) {
+//                        rule_set[j].print();
+//                        if (j != rule_set.size() - 1) std::cout << '\t';
+//                    }
+//                    std::cout << std::endl;
                 }
                 good_rule_objects.emplace_back(rule_set);
                 new_lock.unlock();
@@ -740,6 +740,7 @@ int main(int argc, const char *argv[]) {
         // END OPTIMIZE FLAGS
         if (std::string(argv[i]) == "--optimize-debug") {
             optimize_debug = true;
+            std::cerr << "Enabled Debugging" << std::endl;
         }
         if (std::string(argv[i]) == "--optimize-slow") {
             optimize_slow = true;
@@ -1064,7 +1065,7 @@ int main(int argc, const char *argv[]) {
             time(&end);
             double time_taken = std::ceil(static_cast<double>(end - start) * 100.0) / 100.0;
             std::cerr << std::endl;
-            std::cerr << "\33[2K\r" << std::flush;
+            std::cerr << '\r' << std::flush;
             std::cerr << "no-op: " << time_taken << " sec" << std::endl;
         }
 
@@ -1125,7 +1126,6 @@ int main(int argc, const char *argv[]) {
                 }
             }
             std::cerr << std::endl;
-            std::cerr << "\33[2K\r" << std::flush;
             std::cerr << "Finalizing same-op... please wait, this can take a while" << std::endl;
             // Empty out the queue
             if (!queue_buffer.empty()) {
@@ -1235,7 +1235,7 @@ int main(int argc, const char *argv[]) {
                 }
                 // Progress Bar
                 if (progress_counter % step_counter == 0 || progress_counter == rule_objects.size()) {
-                    std::cerr << "\33[2K\r" << std::flush;
+                    std::cerr << '\r' << std::flush;
                     std::cerr << "[";
                     double pos = barWidth * (static_cast<double>(progress_counter) / static_cast<double>(rule_objects.size()));
                     for (int i = 0; i < barWidth; ++i) {
