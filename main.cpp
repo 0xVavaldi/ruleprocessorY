@@ -55,7 +55,7 @@ static void show_usage() {
     << "\t--optimize-compare COMPARE_FILE\tRemove rules from RULE_FILE found in COMPARE_FILE (like similar-op)\n"
     << "\t--optimize-debug\t\tShow the modified rules in STDOUT\n"
     << "\t--optimize-slow\t\t\tDo not use memory to store data\n"
-    << "Version: 1.0-limited.14-hashmob\n\n"
+    << "Version: 1.0-beta\n\n"
     << std::endl;
 }
 
