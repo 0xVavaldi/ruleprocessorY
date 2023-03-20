@@ -48,6 +48,7 @@ static void show_usage() {
     << "\t-w,--wordlist WORDLIST_FILE\tSpecify the input wordlist path\n"
     << "\t-r,--rules RULE_FILE\t\tSpecify the input rules path\n"
     << "\t--hashcat-input\t\t\tUse hashcat rule format for input rules\n\n"
+    << "\t--hashcat-output\t\t\tUse hashcat rule format for the output of rules\n\n"
     << "\t--optimize-no-op\t\tRemove rules that perform no operation \"$1 ]\"\n"
     << "\t--optimize-same-op\t\tRemove rules that perform the same operation \"$1 $1 ]\" => \"$1\"\n"
     << "\t--optimize-similar-op\t\tRemove one of the rules that performs a similar operation \"$1 ^1\" and \"^1 $1\"\n"
@@ -681,6 +682,7 @@ int main(int argc, const char *argv[]) {
     bool optimize_same_op{false};
     bool optimize_similar_op{false};
     bool hashcat_input{false};
+    bool hashcat_output{false};
     std::ios_base::sync_with_stdio(false); // unsync the IO of C and C++
     time_t absolute_start;
     time(&absolute_start);
@@ -708,6 +710,10 @@ int main(int argc, const char *argv[]) {
 
         if (std::string(argv[i]) == "--hashcat-input") {
             hashcat_input = true;
+        }
+
+        if (std::string(argv[i]) == "--hashcat-output") {
+            hashcat_output = true;
         }
         // OPTIMIZE FLAGS
         if (std::string(argv[i]) == "--optimize-no-op") { //stage 1
@@ -1442,7 +1448,13 @@ int main(int argc, const char *argv[]) {
         for(auto rules : rule_objects) {
             for(int i = 0; i < rules.size(); i++) {
                 rules[i].print();
-                if(i != rules.size()-1) std::cout << '\t';
+                if(i != rules.size()-1) {
+                    if(hashcat_output) {
+                        std::cout << ' '; // hashcat formatting
+                    } else {
+                        std::cout << '\t'; // RuleProcessorY formatting
+                    }
+                }
             }
             std::cout << std::endl;
         }
