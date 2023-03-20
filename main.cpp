@@ -47,8 +47,8 @@ static void show_usage() {
     << "\t-h,--help\t\t\tShow this help message\n"
     << "\t-w,--wordlist WORDLIST_FILE\tSpecify the input wordlist path\n"
     << "\t-r,--rules RULE_FILE\t\tSpecify the input rules path\n"
-    << "\t--hashcat-input\t\t\tUse hashcat rule format for input rules\n\n"
-    << "\t--hashcat-output\t\t\tUse hashcat rule format for the output of rules\n\n"
+    << "\t--hashcat-input\t\t\tUse hashcat rule format for input rules\n"
+    << "\t--hashcat-output\t\tUse hashcat rule format for the output of rules\n\n"
     << "\t--optimize-no-op\t\tRemove rules that perform no operation \"$1 ]\"\n"
     << "\t--optimize-same-op\t\tRemove rules that perform the same operation \"$1 $1 ]\" => \"$1\"\n"
     << "\t--optimize-similar-op\t\tRemove one of the rules that performs a similar operation \"$1 ^1\" and \"^1 $1\"\n"
@@ -56,7 +56,7 @@ static void show_usage() {
     << "\t--optimize-compare COMPARE_FILE\tRemove rules from RULE_FILE found in COMPARE_FILE (like similar-op)\n"
     << "\t--optimize-debug\t\tShow the modified rules in STDOUT\n"
     << "\t--optimize-slow\t\t\tDo not use memory to store data\n"
-    << "Version: 1.0-beta\n\n"
+    << "Version: 1.1\n\n"
     << std::endl;
 }
 
