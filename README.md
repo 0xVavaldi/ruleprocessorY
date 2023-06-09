@@ -13,7 +13,7 @@ sudo apt-get install build-essential cmake git
 ## Quickstart
 If you receive an error regarding your cmake version, edit CMakeLists.txt and lower the cmake_minimum_required to match your version, this will generally not cause an issue. 
 ```
-git clone https://github.com/TheWorkingDeveloper/ruleprocessorY
+git clone https://github.com/0xVavaldi/ruleprocessorY
 cd ruleprocessorY
 cmake .
 make
