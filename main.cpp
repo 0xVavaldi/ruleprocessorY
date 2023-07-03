@@ -82,7 +82,7 @@ std::string convert_from_hashcat(std::string rule) {
     // sets of each rule width
     std::set<char> single_wide = { ':', 'l', 'u', 'c', 'C', 't', 'r', 'd', 'f', '{', '}', '[', ']', 'k', 'K', 'q','E' };
     std::set<char> double_wide = { 'T', 'p', 'D', 'Z', 'z', '$', '^', '<', '>', '_', '\'', '!', '/', '@' ,'-', '+', 'y', 'Y', 'L', 'R', '.', ',', 'e' };
-    std::set<char> triple_wide = { 's', 'S', 'x', 'O', 'o', 'i', '*', '3' };
+    std::set<char> triple_wide = { 's', 'x', 'O', 'o', 'i', '*', '3' };
     std::string formatted_rule;
     int offset;
     char baseRule;
