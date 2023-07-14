@@ -47,7 +47,7 @@ o/0/beta
 
 ### Hashcat cross-comptability
 Finally, using the `--hashcat-input` and/or `--hashcat-output` flag we support hashcat formatted rules (space/no delimiter). This will automatically attempt to parse the rules and convert them into the TSV format.
-In doing so it will replace tabs with \x90 and spaces with \x20. Hashcat supports this notation and the rules will be cross compatible if you were to replace all tabs in the output file with spaces. (or removing tabs entirely).
+In doing so it will replace tabs with \x09 and spaces with \x20. Hashcat supports this notation and the rules will be cross compatible if you were to replace all tabs in the output file with spaces. (or removing tabs entirely).
 
 ### Note on duplicate candidates
 Candidates matching the original word are never printed unless the `:` rule is specified. This is done to prevent duplicates. Example: Using `l` will only print candidates that have an uppercase character and as a result are different from the original plaintext. This can be unfavorable when working with rejection rules. In that case a `:` must be added as a first rule. An example is shown below where the goal is to reject all candidates containing the word "test". To match case toggled candidates the `l` rule is added before the match test. To ensure all candidates are printed and not just rules with uppercase the `:` rule is added, which will force all candidates to be printed.
