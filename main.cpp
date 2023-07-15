@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "modernize-use-emplace"
 #include <cstdio>
 #include <cmath>
 #include <string>
@@ -12,7 +14,6 @@
 #include <mutex>
 #include <set>
 #include <condition_variable>
-#include <map>
 #include "rule.h"
 
 
@@ -82,7 +83,6 @@ int duplicates_removed_level_3 = 0;
 int redundant_removed = 0;
 bool is_processing{true};
 bool optimize_debug{false};
-bool optimize_debug_stderr{false};
 std::vector<std::string> invalid_lines;
 
 // Convert from Hashcat to TSV format (for RuleProcessorY)
@@ -198,16 +198,6 @@ void process_stage1_thread(const std::vector<std::string>& test_words) {
                     std::cout << std::endl;
                     new_lock.unlock();
                 }
-                if (optimize_debug_stderr) {
-                    std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                    std::cerr << "Deleted rule:\t";
-                    for (int i = 0; i < rule_set_pair.second.size(); i++) {
-                        rule_set_pair.second[i].print();
-                        if (i != rule_set_pair.second.size() - 1) std::cerr << '\t';
-                    }
-                    std::cerr << std::endl;
-                    new_lock.unlock();
-                }
                 redundant_removed++;
             }
         }
@@ -294,21 +284,6 @@ void process_stage2_thread(const std::vector<std::string>& test_words) {
                                 }
                                 std::cout << std::endl;
                             }
-                            if(optimize_debug_stderr) {
-                                std::cerr << "Before:\t";
-                                for (Rule rule: rule_set_pair.second) {
-                                    rule.print_err();
-                                    std::cerr << '\t';
-                                }
-
-                                std::cerr << std::endl;
-                                std::cerr << "After:\t";
-                                for (Rule rule: rule_power_set_item) {
-                                    rule.print_err();
-                                    std::cerr << '\t';
-                                }
-                                std::cerr << std::endl;
-                            }
                             // Add improved / optimized rule
                             std::pair<unsigned long, std::vector<Rule>> improved_pair (rule_set_pair.first, std::move(rule_power_set_item));
                             good_rule_objects.push_back(improved_pair);
@@ -332,7 +307,104 @@ void process_stage2_thread(const std::vector<std::string>& test_words) {
     }
 }
 
+long double get_rule_performance(const Rule& rule) {
+    // obtained by testing on a single NVIDIA 3070v1
+    // perl -e 'print "D4\n" x 200000' > rule       (rule to test)
+    // ./hashcat --potfile-disable -m900 afe04867ec7a3845145579a95f72e000 -O D:\Wordlists\rockyou.txt -r rule -n 64 -u 256 -T 512 --backend-vector-width 1 --force
+    // Take the GH/s value, one decimal place rounded to nearest quarter
+
+    switch(rule.rule) {
+        case ':':
+            return 25;
+        case 'l':
+            return 16.5;
+        case 'u':
+            return 16.75;
+        case 'c':
+            return 16;
+        case 'C':
+            return 15.75;
+        case 't':
+            return 16;
+        case 'T':
+            return 19.5;
+        case 'r':
+            return 16.25;
+        case 'd':
+            return 18;
+        case 'p':
+            return 21.5;
+        case 'f':
+            return 14.5;
+        case '{':
+            return 20;
+        case '}':
+            return 19.5;
+        case '$': // $a
+            return 22.75;
+        case '^': // ^a
+            return 21.0;
+        case '[':
+            return 22.75;
+        case ']':
+            return 21;
+        case 'D':
+            return 21.75;
+        case 'x': // x46
+            return 19.75;
+        case 'O': // O31
+            return 20.5;
+        case 'i': // i4c
+            return 19;
+        case 'o': // o5e
+            return 19.5;
+        case '\'': // 5'
+            return 20;
+        case 's':
+            return 11.5;
+        case '@': // this one can go from 10-15 GH/s quite easily by choosing e or x respectively.
+            return 10.25;
+        case 'z':
+            return 18.75;
+        case 'Z':
+            return 9.75;
+        case 'q':
+            return 18.5;
+        case 'k':
+            return 20.5;
+        case 'K':
+            return 19.75;
+        case '*':
+            return 19.5;
+        case 'L': // L4
+            return 19.75;
+        case 'R': // R4
+            return 19.75;
+        case '+': // +4
+            return 19.75;
+        case '-': // -4
+            return 19.75;
+        case '.': // .4
+            return 10;
+        case ',': // ,4
+            return 10;
+        case 'y': // y4
+            return 17.75;
+        case 'Y': // Y4
+            return 18;
+        case 'E':
+            return 11.5;
+        case 'e': // e-
+            return 11;
+        case '3': // 30-
+            return 14.5;
+    }
+    return 15; // default a bit in the middle (lower end)
+}
+
 void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_rules, const std::vector<std::vector<std::string>>& all_rules_output, std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_compare_rules, const std::vector<std::vector<std::string>>& all_compare_rules_output) {
+    // todo: modify the functions so that the line_number is updated to be the 'first one'.
+    // todo: example: rule D0 ^G on line 1 is removed and o0G on line 538383 is kept. o0G should be moved to line 1.
     while(!rule_queue_stage_3.empty() || is_processing) {
         std::unique_lock<std::mutex> lock(lock_obj);
         condition_var.wait(lock, [&] {
@@ -346,7 +418,7 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
         std::vector<long long> buffer = rule_queue_stage_3.front();
         rule_queue_stage_3.pop();
         lock.unlock();
-        for (long long rule_iterator: buffer) {
+        for (long long rule_iterator: buffer) { // Enumerate the buffer
             std::pair<unsigned long, std::vector<Rule>> rule_set_pair = all_rules[rule_iterator];
             if(all_rules.size() < 2) { // Skip if too small
                 std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
@@ -362,7 +434,7 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                     std::pair<unsigned long, std::vector<Rule>> &rule_set_comparison_pair = all_compare_rules[i];
                     // Compare output from ruleset with comparison ruleset and if matches, do not save rule (i.e. delete it)
                     if (all_rules_output[rule_iterator] == all_compare_rules_output[i]) {
-                        // if good_rule_objects contains rule_set -> skip
+                        // if good_rule_objects contains rule_set then skip
                         matches_none = false;
                         duplicates_removed_level_3_compare++;
 
@@ -375,15 +447,6 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                                 if(j != all_rules[i].second.size()-1) std::cout << '\t';
                             }
                             std::cout << std::endl;
-                        }
-                        if(optimize_debug_stderr) {
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for(int j = 0; j < all_rules[i].second.size(); j++) {
-                                all_rules[i].second[j].print_err();
-                                if(j != all_rules[i].second.size()-1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
                         }
                         bad_rule_objects.emplace_back(rule_set_pair);
                         new_lock.unlock();
@@ -400,85 +463,65 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                     matches_none = false;
                     bool rule_set_is_good = false;
                     std::unique_lock<std::mutex> good_lock(result_rule_mutex);
-                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair) != good_rule_objects.end()) { // if original rule is good, do nothing, but do not add rule_set to good or bad
+                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair) != good_rule_objects.end()) { // if original rule is good, investigate. Comparison might need to be replaced or removed.
                         rule_set_is_good = true;
                     }
-                    if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_pair) != bad_rule_objects.end()) { // if original rule is bad
+                    if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_pair) != bad_rule_objects.end()) { // if original rule is bad, a good one already exists -> skip
                         good_lock.unlock();
                         continue;
                     }
-                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_comparison_pair) != good_rule_objects.end()) { // if comparison is good -> skip
+                    if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_comparison_pair) != bad_rule_objects.end()) { // if comparison is bad, a good one already exists -> skip
                         good_lock.unlock();
                         continue;
                     }
-                    if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_comparison_pair) != bad_rule_objects.end()) { // if comparison is bad -> skip
+                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_comparison_pair) != good_rule_objects.end()) { // if comparison is good -> skip. We only need to logically go through one condition
                         good_lock.unlock();
                         continue;
                     }
                     duplicates_removed_level_3++;
 
-                    // save smaller or equal size.
-                    if (rule_set_pair.second.size() <= rule_set_comparison_pair.second.size()) {
-                        if(optimize_debug) {
-                            if(!rule_set_is_good) {
-                                std::cout << "Kept:\t";
-                            } else {
-                                std::cout << "Already Exists:\t";
-                            }
+                    // save smaller size
+                    if (rule_set_pair.second.size() < rule_set_comparison_pair.second.size()) {
+                        if (rule_set_is_good) { // if the rule_set is not already part of the good_rules, add it
+                            bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                        } else {
+                            good_rule_objects.emplace_back(rule_set_pair);
+                            bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                        }
+                        if (optimize_debug) {
+                            if(!rule_set_is_good) std::cout << "Kept:\t\t";
+                            if(rule_set_is_good) std::cout << "Exists:\t\t";
                             for (int j = 0; j < rule_set_pair.second.size(); j++) {
                                 rule_set_pair.second[j].print();
                                 if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
                             }
                             std::cout << std::endl;
                             std::cout << "Deleted:\t";
-                            for(int j = 0; j < all_rules[i].second.size(); j++) {
-                                all_rules[i].second[j].print();
-                                if(j != all_rules[i].second.size()-1) std::cout << '\t';
+                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                rule_set_comparison_pair.second[j].print();
+                                if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
                             }
                             std::cout << std::endl;
                         }
-                        if(optimize_debug_stderr) {
-                            if(!rule_set_is_good) {
-                                std::cerr << "Kept:\t";
-                            } else {
-                                std::cerr << "Already Exists:\t";
-                            }
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print_err();
-                                if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for(int j = 0; j < all_rules[i].second.size(); j++) {
-                                all_rules[i].second[j].print_err();
-                                if(j != all_rules[i].second.size()-1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                        }
-                        if(!rule_set_is_good) { // if the rule_set is not already part of the good_rules, add it
-                            good_rule_objects.emplace_back(rule_set_pair);
-                        }
-                        bad_rule_objects.emplace_back(rule_set_comparison_pair);
                         good_lock.unlock();
                         continue;
                     }
 
-                    if(optimize_debug) {
-                        if(rule_set_is_good) { // rule set is already good
-                            std::cout << "Already Kept:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print();
-                                if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cout << std::endl;
-                            std::cout << "Deleted:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cout << std::endl;
-                        } else {
-                            std::cout << "Kept:\t";
+                    // Don't save the larger rule
+                    if(rule_set_pair.second.size() > rule_set_comparison_pair.second.size()) {
+                        if (rule_set_is_good) { // rule set is already good
+                            // Remove rule_set_pair from the list.
+                            good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
+                            // Add comparison pair to good objects instead
+                            good_rule_objects.emplace_back(rule_set_comparison_pair);
+                            bad_rule_objects.emplace_back(rule_set_pair);
+                        } else { // rule set is not good
+                            good_rule_objects.emplace_back(rule_set_comparison_pair);
+                            bad_rule_objects.emplace_back(rule_set_pair);
+                        }
+                        if(optimize_debug) {
+                            if(!rule_set_is_good) std::cout << "Kept:\t\t";
+                            if(rule_set_is_good) std::cout << "Exists:\t\t";
                             for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
                                 rule_set_comparison_pair.second[j].print();
                                 if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
@@ -491,67 +534,83 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                             }
                             std::cout << std::endl;
                         }
+                        good_lock.unlock();
+                        continue;
                     }
 
-                    if(optimize_debug_stderr) {
-                        if(rule_set_is_good) { // rule set is already good
-                            std::cerr << "Already Kept:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print_err();
-                                if (j != rule_set_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print_err();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                        } else {
-                            std::cerr << "Kept:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print_err();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print_err();
-                                if (j != rule_set_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
+                    // Compare complexity and choose faster one.
+                    if(rule_set_pair.second.size() == rule_set_comparison_pair.second.size()) { // if they're the same length, judge what is better efficiency
+                        long double rule_performance = 0;
+                        long double rule_comparison_performance = 0;
+                        for(const auto& rule_item : rule_set_pair.second) {
+                            rule_performance += get_rule_performance(rule_item);
                         }
-                    }
+                        for(const auto& rule_item : rule_set_comparison_pair.second) {
+                            rule_comparison_performance += get_rule_performance(rule_item);
+                        }
 
-                    if(rule_set_is_good) { // rule set is already good
-                        bad_rule_objects.emplace_back(rule_set_comparison_pair);
-                    } else { // rule set is not good
-                        good_rule_objects.emplace_back(rule_set_comparison_pair);
-                        bad_rule_objects.emplace_back(rule_set_pair);
+                        if(rule_performance >= rule_comparison_performance) {
+                            if(rule_set_is_good) {
+                                bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                            } else {
+                                good_rule_objects.emplace_back(rule_set_pair);
+                                bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                            }
+                            if(optimize_debug) {
+                                if(!rule_set_is_good) std::cout << "Kept:\t\t";
+                                if(rule_set_is_good) std::cout << "Exists:\t\t";
+                                    for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                        rule_set_pair.second[j].print();
+                                        if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
+                                    }
+                                    std::cout << std::endl;
+                                std::cout << "Deleted:\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    rule_set_comparison_pair.second[j].print();
+                                    if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                            }
+                        } else {
+                            if(rule_set_is_good) {
+                                good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
+                                good_rule_objects.emplace_back(rule_set_comparison_pair);
+                                bad_rule_objects.emplace_back(rule_set_pair);
+                            } else {
+                                good_rule_objects.emplace_back(rule_set_comparison_pair);
+                                bad_rule_objects.emplace_back(rule_set_pair);
+                            }
+
+                            if(optimize_debug) {
+                                std::cout << "Kept:\t\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    rule_set_comparison_pair.second[j].print();
+                                    if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                                std::cout << "Deleted:\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    rule_set_pair.second[j].print();
+                                    if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                            }
+                        }
+                        good_lock.unlock();
+                        continue;
                     }
-                    good_lock.unlock();
-                    continue;
                 }
             }
 
             // default behaviour if nothing matches and it's unique
             if (matches_none) {
-                std::unique_lock<std::mutex> lock_match(result_rule_mutex); // Lock
-                if(optimize_debug) {
-//                    std::cout << "Kept new:\t";
-//                    for (int j = 0; j < rule_set.size(); j++) {
-//                        rule_set[j].print();
-//                        if (j != rule_set.size() - 1) std::cout << '\t';
-//                    }
-//                    std::cout << std::endl;
-                }
+                std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                 good_rule_objects.emplace_back(rule_set_pair);
-                lock_match.unlock();
+                new_lock.unlock();
             }
         }
     }
 }
-
 
 void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_rules, std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_compare_rules, const std::vector<std::string>& test_words) {
     while(!rule_queue_stage_3.empty() || is_processing) {
@@ -593,14 +652,12 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
             bool matches_none = true;
             if(!all_compare_rules.empty()) { // if comparing to another rule-set
                 for (size_t i = 0; i <= all_compare_rules.size(); i++) {
-                    std::pair<unsigned long, std::vector<Rule>> &rule_set_comparison_pair = all_compare_rules[i];
-
                     std::vector<std::string> compare_rule_set_output;
                     compare_rule_set_output.reserve(test_words.size());
-
+                    std::vector<Rule> &rule_set_comparison = all_compare_rules[i].second;
                     for (const std::string &test_word: test_words) {
                         std::string new_plain{test_word};
-                        for (Rule &rule_item: rule_set_comparison_pair.second) {
+                        for (Rule &rule_item: rule_set_comparison) {
                             rule_item.process(new_plain);
                         }
                         if (test_word != new_plain && !new_plain.empty()) {
@@ -623,24 +680,29 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                             }
                             std::cout << std::endl;
                         }
-                        if(optimize_debug_stderr) {
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for(int j = 0; j < all_rules[i].second.size(); j++) {
-                                all_rules[i].second[j].print();
-                                if(j != all_rules[i].second.size()-1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                        }
                         bad_rule_objects.emplace_back(rule_set_pair);
                         new_lock.unlock();
                     }
                 }
             }
 
-            // Comparing to itself
+            // Compare rules to itself (O(x^2))
             for (size_t i = 0; i < all_rules.size(); i++) {
+                std::unique_lock<std::mutex> good_lock(result_rule_mutex);
                 std::pair<unsigned long, std::vector<Rule>> &rule_set_comparison_pair = all_rules[i];
+                if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_pair) != bad_rule_objects.end()) { // if original rule is bad, a good one already exists -> skip
+                    good_lock.unlock();
+                    continue;
+                }
+                if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_comparison_pair) != bad_rule_objects.end()) { // if comparison is bad, a good one already exists -> skip
+                    good_lock.unlock();
+                    continue;
+                }
+                if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_comparison_pair) != good_rule_objects.end()) { // if comparison is good -> skip. We only need to logically go through one condition
+                    good_lock.unlock();
+                    continue;
+                }
+
 
                 std::vector<std::string> compare_rule_set_output;
                 compare_rule_set_output.reserve(test_words.size());
@@ -656,35 +718,119 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                 }
                 // Compare output from ruleset with comparison ruleset
                 if (rule_set_output == compare_rule_set_output && i != rule_iterator) {
-                    // if good_rule_objects contains rule_set -> skip
+                    // if the rule output is the same, but the rule is different
                     matches_none = false;
                     bool rule_set_is_good = false;
-                    std::unique_lock<std::mutex> good_lock(result_rule_mutex);
-                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair) != good_rule_objects.end()) { // if original rule is good, do nothing, but do not add rule_set to good or bad
+                    // if rule_set_pair is in good_rule_objects or bad_rule_objects -> skip
+                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair) != good_rule_objects.end()) { // if original rule is good, investigate. Comparison might need to be replaced or removed.
                         rule_set_is_good = true;
-                    }
-                    if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_pair) != bad_rule_objects.end()) { // if original rule is bad
-                        good_lock.unlock();
-                        continue;
-                    }
-                    if (std::find(good_rule_objects.begin(), good_rule_objects.end(), rule_set_comparison_pair) != good_rule_objects.end()) { // if comparison is good -> skip
-                        good_lock.unlock();
-                        continue;
-                    }
-                    if (std::find(bad_rule_objects.begin(), bad_rule_objects.end(), rule_set_comparison_pair) != bad_rule_objects.end()) { // if comparison is bad -> skip
-                        good_lock.unlock();
-                        continue;
                     }
                     duplicates_removed_level_3++;
 
-                    // save smaller or equal size.
-                    if (rule_set_pair.second.size() <= rule_set_comparison_pair.second.size()) {
+                    // save the smaller rule
+                    if(rule_set_pair.second.size() < rule_set_comparison_pair.second.size()) { // if one rule is smaller than the other, take it
+                        if (rule_set_is_good) { // if the rule_set is not already part of the good_rules, add it
+                            bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                        } else {
+                            good_rule_objects.emplace_back(rule_set_pair);
+                            bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                        }
+                        good_lock.unlock();
                         if(optimize_debug) {
-                            if(!rule_set_is_good) {
-                                std::cout << "Kept:\t";
-                            } else {
-                                std::cout << "Already Exists:\t";
+                            if(!rule_set_is_good) std::cout << "Kept:\t\t";
+                            if(rule_set_is_good) std::cout << "Exists:\t";
+                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                rule_set_pair.second[j].print();
+                                if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
                             }
+                            std::cout << std::endl;
+                            std::cout << "Deleted:\t";
+                            for(int j = 0; j < all_rules[i].second.size(); j++) {
+                                all_rules[i].second[j].print();
+                                if(j != all_rules[i].second.size()-1) std::cout << '\t';
+                            }
+                            std::cout << std::endl;
+//                        }
+                        }
+                        continue;
+                    }
+
+                    // Don't save the larger rule
+                    if(rule_set_pair.second.size() > rule_set_comparison_pair.second.size()) {
+                        if (rule_set_is_good) { // rule set is already good
+                            // Remove rule_set_pair from the list.
+                            good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
+                            // Add comparison pair to good objects instead
+                            good_rule_objects.emplace_back(rule_set_comparison_pair);
+                            bad_rule_objects.emplace_back(rule_set_pair);
+                        } else { // rule set is not good
+                            good_rule_objects.emplace_back(rule_set_comparison_pair);
+                            bad_rule_objects.emplace_back(rule_set_pair);
+                        }
+                        good_lock.unlock();
+                        if(optimize_debug) {
+                            if(rule_set_is_good) { // rule set is already good
+                                std::cout << "Exists:\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    rule_set_pair.second[j].print();
+                                    if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                                std::cout << "Deleted:\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    rule_set_comparison_pair.second[j].print();
+                                    if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                            } else {
+                                std::cout << "Kept:\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    rule_set_comparison_pair.second[j].print();
+                                    if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                                std::cout << "Deleted:\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    rule_set_pair.second[j].print();
+                                    if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Compare complexity and choose faster one.
+                    if(rule_set_pair.second.size() == rule_set_comparison_pair.second.size()) { // if they're the same length, judge what is better efficiency
+                        long double rule_complexity = 0;
+                        long double rule_comparison_complexity = 0;
+                        for(const auto& rule_item : rule_set_pair.second) {
+                            rule_complexity += get_rule_performance(rule_item);
+                        }
+                        for(const auto& rule_item : rule_set_comparison_pair.second) {
+                            rule_comparison_complexity += get_rule_performance(rule_item);
+                        }
+
+                        if(rule_complexity >= rule_comparison_complexity) {
+                            if(rule_set_is_good) {
+                                bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                            } else {
+                                good_rule_objects.emplace_back(rule_set_pair);
+                                bad_rule_objects.emplace_back(rule_set_comparison_pair);
+                            }
+                        } else {
+                            if(rule_set_is_good) {
+                                good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
+                                good_rule_objects.emplace_back(rule_set_comparison_pair);
+                                bad_rule_objects.emplace_back(rule_set_pair);
+                            } else {
+                                good_rule_objects.emplace_back(rule_set_comparison_pair);
+                                bad_rule_objects.emplace_back(rule_set_pair);
+                            }
+                        }
+                        if(optimize_debug) {
+                            if(!rule_set_is_good) std::cout << "Kept:\t\t";
+                            if(rule_set_is_good) std::cout << "Exists:\t";
                             for (int j = 0; j < rule_set_pair.second.size(); j++) {
                                 rule_set_pair.second[j].print();
                                 if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
@@ -697,98 +843,11 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                             }
                             std::cout << std::endl;
                         }
-                        if(optimize_debug_stderr) {
-                            if(!rule_set_is_good) {
-                                std::cerr << "Kept:\t";
-                            } else {
-                                std::cerr << "Already Exists:\t";
-                            }
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print();
-                                if (j != rule_set_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for(int j = 0; j < all_rules[i].second.size(); j++) {
-                                all_rules[i].second[j].print();
-                                if(j != all_rules[i].second.size()-1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                        }
-                        if(!rule_set_is_good) { // if the rule_set is not already part of the good_rules, add it
-                            good_rule_objects.emplace_back(rule_set_pair);
-                        }
-                        bad_rule_objects.emplace_back(rule_set_comparison_pair);
                         good_lock.unlock();
                         continue;
                     }
 
-                    if(optimize_debug) {
-                        if(rule_set_is_good) { // rule set is already good
-                            std::cout << "Already Kept:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print();
-                                if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cout << std::endl;
-                            std::cout << "Deleted:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cout << std::endl;
-                        } else {
-                            std::cout << "Kept:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cout << std::endl;
-                            std::cout << "Deleted:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print();
-                                if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
-                            }
-                            std::cout << std::endl;
-                        }
-                    }
-                    if(optimize_debug_stderr) {
-                        if(rule_set_is_good) { // rule set is already good
-                            std::cerr << "Already Kept:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print();
-                                if (j != rule_set_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                        } else {
-                            std::cerr << "Kept:\t";
-                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
-                                rule_set_comparison_pair.second[j].print();
-                                if (j != rule_set_comparison_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                            std::cerr << "Deleted:\t";
-                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                rule_set_pair.second[j].print();
-                                if (j != rule_set_pair.second.size() - 1) std::cerr << '\t';
-                            }
-                            std::cerr << std::endl;
-                        }
-                    }
 
-                    if(rule_set_is_good) { // rule set is already good
-                        bad_rule_objects.emplace_back(rule_set_comparison_pair);
-                    } else { // rule set is not good
-                        good_rule_objects.emplace_back(rule_set_comparison_pair);
-                        bad_rule_objects.emplace_back(rule_set_pair);
-                    }
-                    good_lock.unlock();
                     continue;
                 }
             }
@@ -796,14 +855,6 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
             // default behaviour if nothing matches and it's unique
             if (matches_none) {
                 std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                if(optimize_debug) {
-//                    std::cout << "Kept new:\t";
-//                    for (int j = 0; j < rule_set.size(); j++) {
-//                        rule_set[j].print();
-//                        if (j != rule_set.size() - 1) std::cout << '\t';
-//                    }
-//                    std::cout << std::endl;
-                }
                 good_rule_objects.emplace_back(rule_set_pair);
                 new_lock.unlock();
             }
@@ -872,9 +923,6 @@ int main(int argc, const char *argv[]) {
         if (std::string(argv[i]) == "--optimize-similar-op") { // stage 3
             optimize_similar_op = true;
         }
-        if (std::string(argv[i]) == "--optimize-similar-op") { // stage 3
-            optimize_similar_op = true;
-        }
         if (std::string(argv[i]) == "--optimize-all") {
             optimize_no_op = true; // stage 1
             optimize_same_op = true; //stage 2
@@ -907,10 +955,6 @@ int main(int argc, const char *argv[]) {
         if (std::string(argv[i]) == "--optimize-debug") {
             optimize_debug = true;
             std::cerr << "Enabled Debugging" << std::endl;
-        }
-        if (std::string(argv[i]) == "--optimize-debug-stderr") {
-            optimize_debug_stderr = true;
-            std::cerr << "Enabled STDERR Debugging" << std::endl;
         }
         if (std::string(argv[i]) == "--optimize-slow") {
             optimize_slow = true;
@@ -1151,12 +1195,12 @@ int main(int argc, const char *argv[]) {
         std::vector<std::string> test_words;
         test_words.reserve(300);
         for(int i = 0x0 ; i <= 0xff ; i++) {
-            test_words.emplace_back(std::string(37, char(i)));
+            test_words.emplace_back(37, char(i)); // 37 x the char for 0-9A-Z positional
         }
 
         std::string all_chars;
         for(int i = 0x0 ; i <= 0xff ; i++) { // create a string with all possible hex values
-            for(int j = 0; j < 37; j++) {
+            for(int j = 0; j < 37; j++) { // 37 x the char for 0-9A-Z positional
                 all_chars.append(std::string(1, char(i)));
                 all_chars.append(std::string(1, 'a'));
             }
@@ -1650,7 +1694,7 @@ int main(int argc, const char *argv[]) {
 
         line_counter = 1;
         for(auto& rule_pairs : rule_objects) {
-            while(line_counter == ordered_comments[0].first) { // print comments
+            while(!ordered_comments.empty() && line_counter == ordered_comments[0].first) { // print comments
                 std::cout << ordered_comments[0].second << std::endl;
                 ordered_comments.erase(ordered_comments.begin());
                 line_counter++;
@@ -1724,3 +1768,5 @@ int main(int argc, const char *argv[]) {
     }
     return 0;
 }
+
+#pragma clang diagnostic pop
