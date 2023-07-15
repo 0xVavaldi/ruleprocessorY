@@ -644,3 +644,46 @@ void Rule::print() {
     }
 }
 
+
+void Rule::print_err() {
+    std::string rule_1_copy = rule_value_1;
+    std::string rule_2_copy = rule_value_2;
+
+    // Replace tabs with hex encoded tabs
+    size_t start_pos = rule_1_copy.find('\t');
+    if(start_pos != std::string::npos) {
+        rule_1_copy.replace(start_pos, 1, "\\x09");
+    }
+    start_pos = rule_2_copy.find('\t');
+    if(start_pos != std::string::npos) {
+        rule_2_copy.replace(start_pos, 1, "\\x09");
+    }
+    start_pos = rule_1_copy.find(' ');
+    if(start_pos != std::string::npos) {
+        rule_1_copy.replace(start_pos, 1, "\\x20");
+    }
+    start_pos = rule_2_copy.find(' ');
+    if(start_pos != std::string::npos) {
+        rule_2_copy.replace(start_pos, 1, "\\x20");
+    }
+
+    if(Rule::rule_identify(rule) == 3) {
+        if(rule_value_1.size() > 1) { // intentionally take rule_value_1 to not take escapes into account.
+            start_pos = rule_1_copy.find('/');
+            if(start_pos != std::string::npos) {
+                rule_1_copy.replace(start_pos, 1, "\\/");
+            }
+
+            start_pos = rule_2_copy.find('/');
+            if(start_pos != std::string::npos) {
+                rule_2_copy.replace(start_pos, 1, "\\/");
+            }
+            std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+        } else {
+            std::cerr << rule << rule_1_copy << rule_2_copy;
+        }
+    } else {
+        std::cerr << rule << rule_1_copy << rule_2_copy;
+    }
+}
+
