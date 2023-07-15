@@ -75,6 +75,7 @@ std::mutex result_rule_mutex;
 std::condition_variable condition_var;
 std::vector<std::pair<unsigned long, std::vector<Rule>>> good_rule_objects;
 std::vector<std::pair<unsigned long, std::vector<Rule>>> bad_rule_objects;
+std::vector<std::pair<unsigned long, std::string>> ordered_comments;
 int improvement_counter_level_2 = 0;
 int duplicates_removed_level_3_compare = 0;
 int duplicates_removed_level_3 = 0;
@@ -948,6 +949,18 @@ int main(int argc, const char *argv[]) {
     unsigned long line_counter = 1;
     std::cerr << "Started parsing rules" << std::endl;
     while (std::getline(rule_file_handle, line)) {
+        if(line[0] == '#') {
+            std::pair<unsigned long, std::string> comment {line_counter, line};
+            ordered_comments.push_back(std::move(comment));
+            line_counter++;
+            continue;
+        }
+        if(line.size() > 2 && line[0] == ' ' && line[1] == '#') {
+            std::pair<unsigned long, std::string> comment {line_counter, line};
+            ordered_comments.push_back(std::move(comment));
+            line_counter++;
+            continue;
+        }
         if(hashcat_input) {
             line = convert_from_hashcat(line);
         }
@@ -1634,7 +1647,14 @@ int main(int argc, const char *argv[]) {
 
 
         std::sort(rule_objects.begin(), rule_objects.end(), sort_lineorder_rules);
+
+        line_counter = 1;
         for(auto& rule_pairs : rule_objects) {
+            while(line_counter == ordered_comments[0].first) { // print comments
+                std::cout << ordered_comments[0].second << std::endl;
+                ordered_comments.erase(ordered_comments.begin());
+                line_counter++;
+            }
             for(int i = 0; i < rule_pairs.second.size(); i++) {
                 rule_pairs.second[i].print();
                 if(i != rule_pairs.second.size()-1) {
@@ -1648,6 +1668,7 @@ int main(int argc, const char *argv[]) {
                 }
             }
             std::cout << std::endl;
+            line_counter++;
         }
 
 //        if(invalid_lines.size() > 1) std::cout << std::endl;
