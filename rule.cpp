@@ -482,14 +482,14 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric || !value_2_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // start location
             int_value_2 = get_number_value(rule_value_2); // delete amount
-            return [start_loc=int_value_1, delete_amount=int_value_2](std::string& plaintext){
+            return [start_loc=int_value_1, delete_amount=int_value_2](std::string& plaintext) {
                 if(start_loc > plaintext.size()-1 || plaintext.empty()) {
                     return;
                 }
-                if(start_loc + delete_amount > plaintext.size()) {
-                    plaintext.erase(start_loc, plaintext.size()-start_loc); // Delete until end.
-                } else {
+                if(start_loc + delete_amount < plaintext.size()) {
                     plaintext.erase(start_loc, delete_amount);
+                } else {
+//                    plaintext.erase(start_loc, plaintext.size()-start_loc); // Delete until end. // Hashcat behaviour does not delete if it goes out of bound.
                 }
             };
 
