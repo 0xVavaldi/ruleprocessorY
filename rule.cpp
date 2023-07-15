@@ -615,14 +615,14 @@ void Rule::print() {
     if(start_pos != std::string::npos) {
         rule_2_copy.replace(start_pos, 1, "\\x09");
     }
-    start_pos = rule_1_copy.find(' ');
-    if(start_pos != std::string::npos) {
-        rule_1_copy.replace(start_pos, 1, "\\x20");
-    }
-    start_pos = rule_2_copy.find(' ');
-    if(start_pos != std::string::npos) {
-        rule_2_copy.replace(start_pos, 1, "\\x20");
-    }
+//    start_pos = rule_1_copy.find(' ');
+//    if(start_pos != std::string::npos) {
+//        rule_1_copy.replace(start_pos, 1, "\\x20");
+//    }
+//    start_pos = rule_2_copy.find(' ');
+//    if(start_pos != std::string::npos) {
+//        rule_2_copy.replace(start_pos, 1, "\\x20");
+//    }
 
     if(Rule::rule_identify(rule) == 3) {
         if(rule_value_1.size() > 1) { // intentionally take rule_value_1 to not take escapes into account.
@@ -658,14 +658,14 @@ void Rule::print_err() {
     if(start_pos != std::string::npos) {
         rule_2_copy.replace(start_pos, 1, "\\x09");
     }
-    start_pos = rule_1_copy.find(' ');
-    if(start_pos != std::string::npos) {
-        rule_1_copy.replace(start_pos, 1, "\\x20");
-    }
-    start_pos = rule_2_copy.find(' ');
-    if(start_pos != std::string::npos) {
-        rule_2_copy.replace(start_pos, 1, "\\x20");
-    }
+//    start_pos = rule_1_copy.find(' ');
+//    if(start_pos != std::string::npos) {
+//        rule_1_copy.replace(start_pos, 1, "\\x20");
+//    }
+//    start_pos = rule_2_copy.find(' ');
+//    if(start_pos != std::string::npos) {
+//        rule_2_copy.replace(start_pos, 1, "\\x20");
+//    }
 
     if(Rule::rule_identify(rule) == 3) {
         if(rule_value_1.size() > 1) { // intentionally take rule_value_1 to not take escapes into account.

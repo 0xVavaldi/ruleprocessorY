@@ -61,7 +61,8 @@ static void show_usage() {
     << "\t--optimize-compare COMPARE_FILE\tRemove rules from RULE_FILE found in COMPARE_FILE (like similar-op)\n"
     << "\t--optimize-debug\t\tShow the modified rules in STDOUT\n"
     << "\t--optimize-slow\t\t\tDo not use memory to store data\n"
-    << "Version: 1.1\n\n"
+    << "\t--delimiter DELIMITER\t\tSpecify delimiter to use. Default: \\t, Default hashcat: \" \"\n"
+    << "Version: 1.2n\n"
     << std::endl;
 }
 
@@ -104,18 +105,18 @@ std::string convert_from_hashcat(std::string rule) {
 
             // check if the rule is 1 character wide
         else if (single_wide.count(baseRule)) {
-            formatted_rule += rule.substr(offset, 1) + "\t";
+            formatted_rule += rule.substr(offset, 1) + '\t';
             offset += 1;
         }
             // check if the rule is 2 characters wide
         else if (double_wide.count(baseRule)) {
             // check for hex notation
             if (rule.substr(offset + 1, 2) == "\\x") {
-                formatted_rule += rule.substr(offset, 5) + "\t";
+                formatted_rule += rule.substr(offset, 5) + '\t';
                 offset += 5;
             }
             else {
-                formatted_rule += rule.substr(offset, 2) + "\t";
+                formatted_rule += rule.substr(offset, 2) + '\t';
                 offset += 2;
             }
         }
@@ -123,11 +124,11 @@ std::string convert_from_hashcat(std::string rule) {
         else if (triple_wide.count(baseRule)) {
             // check for hex notation
             if (rule.substr(offset + 1, 2) == "\\x") {
-                formatted_rule += rule.substr(offset, 6) + "\t";
+                formatted_rule += rule.substr(offset, 6) + '\t';
                 offset += 6;
             }
             else {
-                formatted_rule += rule.substr(offset, 3) + "\t";
+                formatted_rule += rule.substr(offset, 3) + '\t';
                 offset += 3;
             }
         }
@@ -819,6 +820,8 @@ int main(int argc, const char *argv[]) {
     std::string input_wordlist;
     std::string input_rules;
     std::string compare_rules;
+    char delimiter = '\t';
+    bool no_delimiter = false;
     bool help{false};
     bool optimize_slow{false};
     bool optimize_no_op{false};
@@ -832,7 +835,7 @@ int main(int argc, const char *argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--wordlist" || std::string(argv[i]) == "-w") {
-            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 1 ) {
+            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
                 input_wordlist = argv[i+1];
             } else {
                 std::cerr << argv[i] << " option requires an argument." << std::endl;
@@ -840,7 +843,7 @@ int main(int argc, const char *argv[]) {
             }
         }
         if (std::string(argv[i]) == "--rule" || std::string(argv[i]) == "-r") {
-            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 1) {
+            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
                 input_rules = argv[i+1];
             } else {
                 std::cerr << argv[i] << " option requires an argument." << std::endl;
@@ -878,7 +881,7 @@ int main(int argc, const char *argv[]) {
         }
 
         if (std::string(argv[i]) == "--optimize-compare") {
-            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 1) {
+            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
                 compare_rules = argv[i+1];
                 std::cerr << "--optimize-compare has automatically enabled --optimize-similar-op." << std::endl;
             } else {
@@ -886,6 +889,19 @@ int main(int argc, const char *argv[]) {
                 return -1;
             }
         }
+
+        if (std::string(argv[i]) == "--delimiter") {
+            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
+                if(strlen(argv[i+1]) > 1) {
+                    std::cerr << argv[i] << " delimiter must be at most 1 character." << std::endl;
+                    return -1;
+                }
+                delimiter = argv[i + 1][0];
+            } else {
+                no_delimiter = true;
+            }
+        }
+
         // END OPTIMIZE FLAGS
         if (std::string(argv[i]) == "--optimize-debug") {
             optimize_debug = true;
@@ -959,7 +975,12 @@ int main(int argc, const char *argv[]) {
         }
 
         std::vector<Rule> rule_set;
-        std::vector<std::string> raw_rules = split(line, '\t');
+        std::vector<std::string> raw_rules;
+        if(hashcat_input) {
+            raw_rules = split(line, '\t');
+        } else {
+            raw_rules = split(line, delimiter);
+        }
         bool is_valid = true;
         int i = 0;
         for(std::string raw_rule : raw_rules) {
@@ -1040,7 +1061,7 @@ int main(int argc, const char *argv[]) {
         std::cerr << "Started parsing comparison rules" << std::endl;
         while (std::getline(compare_rule_file_handle, line)) {
             std::vector<Rule> rule_set;
-            std::vector<std::string> raw_rules = split(line, '\t');
+            std::vector<std::string> raw_rules = split(line, delimiter);
             bool is_valid = true;
             int i = 0;
             for(std::string raw_rule : raw_rules) {
@@ -1620,7 +1641,9 @@ int main(int argc, const char *argv[]) {
                     if(hashcat_output) {
                         std::cout << ' '; // hashcat formatting
                     } else {
-                        std::cout << '\t'; // RuleProcessorY formatting
+                        if(!no_delimiter) {
+                            std::cout << delimiter; // RuleProcessorY formatting
+                        }
                     }
                 }
             }
