@@ -20,7 +20,6 @@ public:
 
     Rule(char input_rule, const std::string &input_rule_value_1, const std::string &input_rule_value_2);
     void print();
-    void print_err();
     void process(std::string& plaintext);
     std::function<void(std::string&)> build_rule_processor();
     bool operator==(const Rule& rhs) const;

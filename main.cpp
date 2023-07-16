@@ -63,7 +63,7 @@ static void show_usage() {
     << "\t--optimize-debug\t\tShow the modified rules in STDOUT\n"
     << "\t--optimize-slow\t\t\tDo not use memory to store data\n"
     << "\t--delimiter DELIMITER\t\tSpecify delimiter to use. Default: \\t, Default hashcat: \" \"\n"
-    << "Version: 1.2n\n"
+    << "Version: 1.2\n\n"
     << std::endl;
 }
 
@@ -86,7 +86,7 @@ bool optimize_debug{false};
 std::vector<std::string> invalid_lines;
 
 // Convert from Hashcat to TSV format (for RuleProcessorY)
-std::string convert_from_hashcat(std::string rule) {
+std::string convert_from_hashcat(unsigned long line_counter, std::string rule) {
     // sets of each rule width
     std::set<char> single_wide = { ':', 'l', 'u', 'c', 'C', 't', 'r', 'd', 'f', '{', '}', '[', ']', 'k', 'K', 'q','E' };
     std::set<char> double_wide = { 'T', 'p', 'D', 'Z', 'z', '$', '^', '<', '>', '_', '\'', '!', '/', '@' ,'-', '+', 'y', 'Y', 'L', 'R', '.', ',', 'e' };
@@ -138,7 +138,7 @@ std::string convert_from_hashcat(std::string rule) {
             offset = 254;
             // error if the baseRule is unknown
         else {
-            std::cerr << "Unknown rule format: " << baseRule << ':' << rule << std::endl;
+            std::cerr << "Unknown rule format on line " << line_counter << ": " << baseRule << ':' << rule << std::endl;
             offset = 254;
         }
     }
@@ -187,18 +187,19 @@ void process_stage1_thread(const std::vector<std::string>& test_words) {
                 std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                 good_rule_objects.emplace_back(rule_set_pair);
                 new_lock.unlock();
-            } else {
-                if (optimize_debug) {
-                    std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                    std::cout << "Deleted rule:\t";
-                    for (int i = 0; i < rule_set_pair.second.size(); i++) {
-                        rule_set_pair.second[i].print();
-                        if (i != rule_set_pair.second.size() - 1) std::cout << '\t';
-                    }
-                    std::cout << std::endl;
-                    new_lock.unlock();
+                continue;
+            }
+            // else
+            redundant_removed++;
+            if (optimize_debug) {
+                std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
+                std::cout << "Deleted:\t";
+                for (int i = 0; i < rule_set_pair.second.size(); i++) {
+                    rule_set_pair.second[i].print();
+                    if (i != rule_set_pair.second.size() - 1) std::cout << '\t';
                 }
-                redundant_removed++;
+                std::cout << std::endl;
+                new_lock.unlock();
             }
         }
     }
@@ -332,7 +333,7 @@ long double get_rule_performance(const Rule& rule) {
             return 16.25;
         case 'd':
             return 18;
-        case 'p':
+        case 'p': // pA
             return 21.5;
         case 'f':
             return 14.5;
@@ -403,8 +404,6 @@ long double get_rule_performance(const Rule& rule) {
 }
 
 void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_rules, const std::vector<std::vector<std::string>>& all_rules_output, std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_compare_rules, const std::vector<std::vector<std::string>>& all_compare_rules_output) {
-    // todo: modify the functions so that the line_number is updated to be the 'first one'.
-    // todo: example: rule D0 ^G on line 1 is removed and o0G on line 538383 is kept. o0G should be moved to line 1.
     while(!rule_queue_stage_3.empty() || is_processing) {
         std::unique_lock<std::mutex> lock(lock_obj);
         condition_var.wait(lock, [&] {
@@ -430,7 +429,7 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
             // Get rule set output from every other rule set
             bool matches_none = true;
             if(!all_compare_rules.empty()) { // if comparing to another rule-set
-                for (size_t i = 0; i <= all_compare_rules.size(); i++) {
+                for (size_t i = 0; i < all_compare_rules.size(); i++) {
                     std::pair<unsigned long, std::vector<Rule>> &rule_set_comparison_pair = all_compare_rules[i];
                     // Compare output from ruleset with comparison ruleset and if matches, do not save rule (i.e. delete it)
                     if (all_rules_output[rule_iterator] == all_compare_rules_output[i]) {
@@ -442,9 +441,9 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                         if(optimize_debug) {
                             std::cout << std::endl;
                             std::cout << "Deleted:\t";
-                            for(int j = 0; j < all_rules[i].second.size(); j++) {
-                                all_rules[i].second[j].print();
-                                if(j != all_rules[i].second.size()-1) std::cout << '\t';
+                            for(int j = 0; j < all_rules[rule_iterator].second.size(); j++) {
+                                all_rules[rule_iterator].second[j].print();
+                                if(j != all_rules[rule_iterator].second.size()-1) std::cout << '\t';
                             }
                             std::cout << std::endl;
                         }
@@ -482,6 +481,8 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
 
                     // save smaller size
                     if (rule_set_pair.second.size() < rule_set_comparison_pair.second.size()) {
+                        // Set rule_set_pair line number to be the lowest of the two since they're identical outputs.
+                        rule_set_pair.first = (rule_set_pair.first < rule_set_comparison_pair.first) ? rule_set_pair.first : rule_set_comparison_pair.first;
                         if (rule_set_is_good) { // if the rule_set is not already part of the good_rules, add it
                             bad_rule_objects.emplace_back(rule_set_comparison_pair);
                         } else {
@@ -509,7 +510,9 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
 
                     // Don't save the larger rule
                     if(rule_set_pair.second.size() > rule_set_comparison_pair.second.size()) {
+                        rule_set_comparison_pair.first = (rule_set_comparison_pair.first < rule_set_pair.first) ? rule_set_comparison_pair.first : rule_set_pair.first;
                         if (rule_set_is_good) { // rule set is already good
+                            // Set rule_set_comparison_pair line number to be the lowest of the two since they're identical outputs.
                             // Remove rule_set_pair from the list.
                             good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
                             // Add comparison pair to good objects instead
@@ -550,9 +553,11 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                         }
 
                         if(rule_performance >= rule_comparison_performance) {
+                            rule_set_pair.first = (rule_set_pair.first < rule_set_comparison_pair.first) ? rule_set_pair.first : rule_set_comparison_pair.first;
                             if(rule_set_is_good) {
                                 bad_rule_objects.emplace_back(rule_set_comparison_pair);
                             } else {
+                                // Set rule_set_pair line number to be the lowest of the two since they're identical outputs.
                                 good_rule_objects.emplace_back(rule_set_pair);
                                 bad_rule_objects.emplace_back(rule_set_comparison_pair);
                             }
@@ -572,7 +577,9 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                                 std::cout << std::endl;
                             }
                         } else {
+                            rule_set_comparison_pair.first = (rule_set_comparison_pair.first < rule_set_pair.first) ? rule_set_comparison_pair.first : rule_set_pair.first;
                             if(rule_set_is_good) {
+                            // Set rule_set_comparison_pair line number to be the lowest of the two since they're identical outputs.
                                 good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
                                 good_rule_objects.emplace_back(rule_set_comparison_pair);
                                 bad_rule_objects.emplace_back(rule_set_pair);
@@ -613,6 +620,7 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
 }
 
 void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_rules, std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_compare_rules, const std::vector<std::string>& test_words) {
+    // todo possible rewrite to check feasibility of file memory
     while(!rule_queue_stage_3.empty() || is_processing) {
         std::unique_lock<std::mutex> lock(lock_obj);
         condition_var.wait(lock, [&] {
@@ -637,7 +645,6 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
 
             std::vector<std::string> rule_set_output;
             rule_set_output.reserve(test_words.size());
-
             for (const std::string &test_word: test_words) {
                 std::string new_plain{test_word};
                 for (Rule &rule_item: rule_set_pair.second) {
@@ -651,10 +658,12 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
             // Get rule set output from every other rule set
             bool matches_none = true;
             if(!all_compare_rules.empty()) { // if comparing to another rule-set
-                for (size_t i = 0; i <= all_compare_rules.size(); i++) {
+                for (size_t i = 0; i < all_compare_rules.size(); i++) {
                     std::vector<std::string> compare_rule_set_output;
                     compare_rule_set_output.reserve(test_words.size());
                     std::vector<Rule> &rule_set_comparison = all_compare_rules[i].second;
+
+                    // Get the computed words
                     for (const std::string &test_word: test_words) {
                         std::string new_plain{test_word};
                         for (Rule &rule_item: rule_set_comparison) {
@@ -672,7 +681,6 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
 
                         std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
                         if(optimize_debug) {
-                            std::cout << std::endl;
                             std::cout << "Deleted:\t";
                             for(int j = 0; j < all_rules[i].second.size(); j++) {
                                 all_rules[i].second[j].print();
@@ -729,6 +737,7 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
 
                     // save the smaller rule
                     if(rule_set_pair.second.size() < rule_set_comparison_pair.second.size()) { // if one rule is smaller than the other, take it
+                        rule_set_pair.first = (rule_set_pair.first < rule_set_comparison_pair.first) ? rule_set_pair.first : rule_set_comparison_pair.first;
                         if (rule_set_is_good) { // if the rule_set is not already part of the good_rules, add it
                             bad_rule_objects.emplace_back(rule_set_comparison_pair);
                         } else {
@@ -757,6 +766,7 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
 
                     // Don't save the larger rule
                     if(rule_set_pair.second.size() > rule_set_comparison_pair.second.size()) {
+                        rule_set_comparison_pair.first = (rule_set_comparison_pair.first < rule_set_pair.first) ? rule_set_comparison_pair.first : rule_set_pair.first;
                         if (rule_set_is_good) { // rule set is already good
                             // Remove rule_set_pair from the list.
                             good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
@@ -812,6 +822,7 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                         }
 
                         if(rule_complexity >= rule_comparison_complexity) {
+                            rule_set_pair.first = (rule_set_pair.first < rule_set_comparison_pair.first) ? rule_set_pair.first : rule_set_comparison_pair.first;
                             if(rule_set_is_good) {
                                 bad_rule_objects.emplace_back(rule_set_comparison_pair);
                             } else {
@@ -819,6 +830,7 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                                 bad_rule_objects.emplace_back(rule_set_comparison_pair);
                             }
                         } else {
+                            rule_set_comparison_pair.first = (rule_set_comparison_pair.first < rule_set_pair.first) ? rule_set_comparison_pair.first : rule_set_pair.first;
                             if(rule_set_is_good) {
                                 good_rule_objects.erase(std::remove(good_rule_objects.begin(), good_rule_objects.end(), rule_set_pair), good_rule_objects.end());
                                 good_rule_objects.emplace_back(rule_set_comparison_pair);
@@ -999,14 +1011,14 @@ int main(int argc, const char *argv[]) {
             line_counter++;
             continue;
         }
-        if(line.size() > 2 && line[0] == ' ' && line[1] == '#') {
+        if(line.size() >= 2 && line[0] == ' ' && line[1] == '#') {
             std::pair<unsigned long, std::string> comment {line_counter, line};
             ordered_comments.push_back(std::move(comment));
             line_counter++;
             continue;
         }
         if(hashcat_input) {
-            line = convert_from_hashcat(line);
+            line = convert_from_hashcat(line_counter, line);
         }
         std::string unescaped_line;
         // Unescape
@@ -1117,6 +1129,44 @@ int main(int argc, const char *argv[]) {
         line_counter = 1;
         std::cerr << "Started parsing comparison rules" << std::endl;
         while (std::getline(compare_rule_file_handle, line)) {
+            if(line[0] == '#') {
+                std::pair<unsigned long, std::string> comment {line_counter, line};
+                ordered_comments.push_back(std::move(comment));
+                line_counter++;
+                continue;
+            }
+            if(line.size() >= 2 && line[0] == ' ' && line[1] == '#') {
+                std::pair<unsigned long, std::string> comment {line_counter, line};
+                ordered_comments.push_back(std::move(comment));
+                line_counter++;
+                continue;
+            }
+            if(hashcat_input) {
+                line = convert_from_hashcat(line_counter, line);
+            }
+            std::string unescaped_line;
+            // Unescape
+            // Parse escaped hex chars
+            for(int i=0; i < line.size(); i++) {
+                if (i+3 < line.size() && line[i] == '\\' && line[i + 1] == 'x') {
+                    if (isxdigit(line[i + 2]) && isxdigit(line[i + 3])) {
+                        int hi = int(line[i + 2]) - 48;
+                        if (hi > 10) hi -= 7;
+                        if (hi > 15) hi -= 32;
+
+                        int low = int(line[i + 3]) - 48;
+                        if (low > 10) low -= 7;
+                        if (low > 15) low -= 32;
+
+                        int value = ((int) hi) * 16 + (int)low;
+                        unescaped_line += std::string(1, char(value));
+                        i+=2;
+                    }
+                } else {
+                    unescaped_line += line[i];
+                }
+            }
+
             std::vector<Rule> rule_set;
             std::vector<std::string> raw_rules = split(line, delimiter);
             bool is_valid = true;
@@ -1184,7 +1234,9 @@ int main(int argc, const char *argv[]) {
                 compare_rule_objects.push_back(rule_with_line_number);
             }
             if(!is_valid) {
-                fprintf(stderr, "Invalid Comparison Rule: \"%s\"\n", line.c_str());
+                if(line[0] != '#') {
+                    fprintf(stderr, "Invalid Comparison Rule: \"%s\"\n", line.c_str());
+                }
             }
         }
         std::cerr << "Completed parsing comparison rules" << std::endl;
@@ -1421,12 +1473,22 @@ int main(int argc, const char *argv[]) {
             std::cerr << std::endl;
             time_t start, end, absolute_end;
             time(&start);
-            long long estimated_size = rule_objects.size() * test_words.size() * sizeof(test_words[0]) + sizeof(std::vector<std::string>) * rule_objects.size();
-            if(!compare_rule_objects.empty()) {
-                estimated_size += compare_rule_objects.size() * test_words.size() * sizeof(test_words[0]) + sizeof(std::vector<std::string>) * compare_rule_objects.size();
+            long double test_word_size {0};
+            for (const std::string &test_word : test_words) {
+                test_word_size += sizeof(test_word) * sizeof(test_word[0]);
             }
+            test_word_size *= 1.2; // margin
+
+            long double estimated_size = rule_objects.size() * test_word_size; // wordlist size
+            estimated_size *= 3; // correction. It appears 3x larger than expected.
+            if(!compare_rule_objects.empty()) {
+                estimated_size += compare_rule_objects.size() * test_word_size;
+            }
+            // add processed output
+            estimated_size *= 2;
+
             double usage = std::ceil(estimated_size/1000000 * 100.0) / 100.0;
-            std::cerr << "Pregenerating data. Estimated Memory usage: " << usage << "MB. \nMemory usage starts off a few GB higher, especially if specifying a wordlist." <<  std::endl;
+            std::cerr << "Pregenerating data. Estimated Memory usage: " << usage << "MB. \nMemory usage can start off a lot higher than expected, especially if specifying a wordlist." <<  std::endl;
 
             std::vector<std::vector<std::string>> all_rules_output;
             all_rules_output.reserve(rule_objects.size());
@@ -1464,6 +1526,7 @@ int main(int argc, const char *argv[]) {
                 }
                 compare_rules_output.push_back(std::move(compare_rule_set_output));
             }
+
             std::cerr << "Completed Pregenerating Data" << std::endl;
 
             progress_counter = 0;
@@ -1576,7 +1639,7 @@ int main(int argc, const char *argv[]) {
             time(&start);
             progress_counter = 0;
             if(std::thread::hardware_concurrency() >= 2) {
-                for (size_t t_id = 0; t_id < std::thread::hardware_concurrency()-2; t_id++) {
+                for (size_t t_id = 0; t_id < std::thread::hardware_concurrency()-1; t_id++) {
                     threads.emplace_back(std::thread(&process_stage3_thread_slow, std::ref(rule_objects), std::ref(compare_rule_objects), std::ref(test_words)));
                 }
             } else {
@@ -1586,9 +1649,9 @@ int main(int argc, const char *argv[]) {
             std::vector<long long> buffer;
             for (std::pair<unsigned long, std::vector<Rule>> &rule_set_pair: rule_objects) {
                 progress_counter++;
-                while (rule_queue_stage_3.size() > 100) { // Limit queue size
+                while (rule_queue_stage_3.size() > 500) { // Limit queue size
                     condition_var.notify_one();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 // Progress Bar
                 if (progress_counter % 10 == 0 || progress_counter == rule_objects.size()) {
