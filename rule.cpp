@@ -10,7 +10,7 @@
 Rule::Rule(const char input_rule, const std::string& input_rule_value_1, const std::string& input_rule_value_2) {
     rule_value_1 = input_rule_value_1;
     rule_value_2 = input_rule_value_2;
-    rule = input_rule ;
+    rule = input_rule;
     rule_processor = build_rule_processor();
     invalid_rule = false;
 
@@ -403,8 +403,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // insert location
             return [rule_value_1=int_value_1](std::string& plaintext){
-                if(rule_value_1 > plaintext.size()) return;
-                plaintext[rule_value_1] = plaintext[rule_value_1];
+                if(rule_value_1 >= plaintext.size()) return;
                 plaintext[rule_value_1] = static_cast<char>(static_cast<unsigned char>(plaintext[rule_value_1]) << 1);
             };
 
@@ -412,8 +411,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // insert location
             return [rule_value_1=int_value_1](std::string& plaintext){
-                if(rule_value_1 > plaintext.size()) return;
-                plaintext[rule_value_1] = plaintext[rule_value_1];
+                if(rule_value_1 >= plaintext.size()) return;
                 plaintext[rule_value_1] = static_cast<char>(static_cast<unsigned char>(plaintext[rule_value_1]) >> 1);
             };
 
@@ -421,18 +419,16 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // insert location
             return [rule_value_1=int_value_1](std::string& plaintext) {
-                if(rule_value_1 < plaintext.size()) {
-                    plaintext[rule_value_1] = --plaintext[rule_value_1];
-                }
+                if(rule_value_1 >= plaintext.size()) return;
+                plaintext[rule_value_1] = --plaintext[rule_value_1];
             };
 
         case '+':
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // insert location
             return [rule_value_1=int_value_1](std::string& plaintext) {
-                if(rule_value_1 < plaintext.size()) {
-                    plaintext[rule_value_1] = ++plaintext[rule_value_1];
-                }
+                if(rule_value_1 >= plaintext.size()) return;
+                plaintext[rule_value_1] = ++plaintext[rule_value_1];
             };
 
         case '@':
@@ -444,9 +440,8 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // target location
             return [rule_value_1=int_value_1](std::string& plaintext){
-                if(rule_value_1+1 < plaintext.size()) {
-                    plaintext[rule_value_1] = plaintext[rule_value_1+1];
-                }
+                if(rule_value_1+1 >= plaintext.size()) return;
+                plaintext[rule_value_1] = plaintext[rule_value_1+1];
             };
 
         case ',':
@@ -482,14 +477,12 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric || !value_2_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // start location
             int_value_2 = get_number_value(rule_value_2); // delete amount
-            return [start_loc=int_value_1, delete_amount=int_value_2](std::string& plaintext){
-                if(start_loc > plaintext.size()-1 || plaintext.empty()) {
-                    return;
-                }
-                if(start_loc + delete_amount > plaintext.size()) {
-                    plaintext.erase(start_loc, plaintext.size()-start_loc); // Delete until end.
-                } else {
+            return [start_loc=int_value_1, delete_amount=int_value_2](std::string& plaintext) {
+                if(start_loc > plaintext.size()-1 || plaintext.empty()) return;
+                if(start_loc + delete_amount < plaintext.size()) {
                     plaintext.erase(start_loc, delete_amount);
+                } else {
+//                    plaintext.erase(start_loc, plaintext.size()-start_loc); // Delete until end. // Hashcat behaviour does not delete if it goes out of bound.
                 }
             };
 
@@ -499,9 +492,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(int_value_1 < 0) break;
 
             return [offset=int_value_1, replace_value=rule_value_2](std::string& plaintext){
-                if((offset+replace_value.size()-1) > plaintext.size()-1 || plaintext.empty()) {
-                    return;
-                }
+                if((offset+replace_value.size()-1) > plaintext.size()-1 || plaintext.empty()) return;
                 for(int i=0; i < replace_value.size(); i++) {
                     plaintext[offset + i] = replace_value[i];
                 }
@@ -522,9 +513,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             int_value_2 = get_number_value(rule_value_2); // delete amount
             if(int_value_1 < 0 || int_value_2 < 0) break;
             return [start_loc=int_value_1, keep_amount=int_value_2](std::string& plaintext){
-                if(plaintext.empty() || start_loc >= plaintext.size()) {
-                    return;
-                }
+                if(plaintext.empty() || start_loc >= plaintext.size()) return;
                 if((start_loc + keep_amount) <= plaintext.size()) {
                     plaintext.erase(start_loc + keep_amount, plaintext.size()-(start_loc+keep_amount));
                     plaintext.erase(0, start_loc); // Delete from start to start of rule
@@ -535,9 +524,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1);
             return [reject_count=int_value_1](std::string& plaintext){
-                if(reject_count < plaintext.size()) {
-                    return;
-                }
+                if(reject_count < plaintext.size()) return;
                 plaintext = "";
             };
 
@@ -545,9 +532,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1);
             return [reject_count=int_value_1](std::string& plaintext){
-                if(reject_count > plaintext.size()) {
-                    return;
-                }
+                if(reject_count > plaintext.size()) return;
                 plaintext = "";
             };
 
@@ -574,7 +559,7 @@ std::function<void(std::string&)> Rule::build_rule_processor() {
                 }
             };
 
-        case '3':  // Toggle nth instance of a char
+        case '3':  // Toggle letter after nth instance of a char
             if(!value_1_is_numeric) break;
             int_value_1 = get_number_value(rule_value_1); // character location
             return [rule_instance_of_char = int_value_1, char_value_rule = rule_value_2](std::string& plaintext) {
@@ -602,7 +587,7 @@ void Rule::process(std::string& plaintext) {
     return rule_processor(plaintext);
 }
 
-void Rule::print() {
+void Rule::print(bool error) {  // Error is false by default
     std::string rule_1_copy = rule_value_1;
     std::string rule_2_copy = rule_value_2;
 
@@ -615,14 +600,14 @@ void Rule::print() {
     if(start_pos != std::string::npos) {
         rule_2_copy.replace(start_pos, 1, "\\x09");
     }
-    start_pos = rule_1_copy.find(' ');
-    if(start_pos != std::string::npos) {
-        rule_1_copy.replace(start_pos, 1, "\\x20");
-    }
-    start_pos = rule_2_copy.find(' ');
-    if(start_pos != std::string::npos) {
-        rule_2_copy.replace(start_pos, 1, "\\x20");
-    }
+//    start_pos = rule_1_copy.find(' ');
+//    if(start_pos != std::string::npos) {
+//        rule_1_copy.replace(start_pos, 1, "\\x20");
+//    }
+//    start_pos = rule_2_copy.find(' ');
+//    if(start_pos != std::string::npos) {
+//        rule_2_copy.replace(start_pos, 1, "\\x20");
+//    }
 
     if(Rule::rule_identify(rule) == 3) {
         if(rule_value_1.size() > 1) { // intentionally take rule_value_1 to not take escapes into account.
@@ -635,12 +620,27 @@ void Rule::print() {
             if(start_pos != std::string::npos) {
                 rule_2_copy.replace(start_pos, 1, "\\/");
             }
-            std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+
+            if (error) {
+                std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            } else {
+                std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            }
+
+        } else {
+            if (error) {
+                std::cerr << rule << rule_1_copy << rule_2_copy;
+            } else {
+                std::cout << rule << rule_1_copy << rule_2_copy;
+            }
+        }
+    } else {
+        if (error) {
+            std::cerr << rule << rule_1_copy << rule_2_copy;
         } else {
             std::cout << rule << rule_1_copy << rule_2_copy;
         }
-    } else {
-        std::cout << rule << rule_1_copy << rule_2_copy;
     }
 }
+
 

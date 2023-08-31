@@ -1,6 +1,6 @@
 # ruleprocessorY
-![Main Build](https://github.com/TheWorkingDeveloper/ruleprocessorY/actions/workflows/cmake.yml/badge.svg) 
-![CodeQL](https://github.com/TheWorkingDeveloper/ruleprocessorY/actions/workflows/codeql-analysis.yml/badge.svg)
+![Main Build](https://github.com/0xVavaldi/ruleprocessorY/actions/workflows/cmake.yml/badge.svg) 
+![CodeQL](https://github.com/0xVavaldi/ruleprocessorY/actions/workflows/codeql-analysis.yml/badge.svg)
 
 Rule Processor Y is a next-gen Rule processor with multibyte character support built for hashcat. It applies rules to wordlists in order to transform them in whichever way the user pleases.
 The key feature of this ruleprocessor is that it allows a user to quickly do multibyte or multi-character replacements such as replacing the e with é or the other way around for normalization of wordlists.
@@ -13,16 +13,18 @@ sudo apt-get install build-essential cmake git
 ## Quickstart
 If you receive an error regarding your cmake version, edit CMakeLists.txt and lower the cmake_minimum_required to match your version, this will generally not cause an issue. 
 ```
-git clone https://github.com/TheWorkingDeveloper/ruleprocessorY
+git clone https://github.com/0xVavaldi/ruleprocessorY
 cd ruleprocessorY
 cmake .
 make
 ./ruleprocessorY -h
-./ruleprocessorY -w rockyou.txt -r example_rules.json
+./ruleprocessorY -w rockyou.txt -r example_rules.rule
+./ruleprocessorY -w rockyou.txt -r rules/best66.rule --hashcat-input --hashcat-output
 ```
+If you want to use this with hashcat, you must specify the `--hashcat-input` flag to accept hashcat-style input files and `--hashcat-output` if you wish to use the output of the tool in hashcat.
 
 ## Rule writing
-Rules are stored using a tab separated format (TSV), which is CSV, but with tabs; Within each line you can utilize the standard rules you might be familiar with in Hashcat (https://hashcat.net/wiki/doku.php?id=rule_based_attack). An example is shown below:
+Rules are stored using a tab separated format (TSV), which is CSV, but with tabs. Within each line you can utilize the standard rules you might be familiar with in Hashcat (https://hashcat.net/wiki/doku.php?id=rule_based_attack). An example is shown below:
 ```tsv
 c
 u   $1  $2  $3
@@ -47,7 +49,7 @@ o/0/beta
 
 ### Hashcat cross-comptability
 Finally, using the `--hashcat-input` and/or `--hashcat-output` flag we support hashcat formatted rules (space/no delimiter). This will automatically attempt to parse the rules and convert them into the TSV format.
-In doing so it will replace tabs with \x90 and spaces with \x20. Hashcat supports this notation and the rules will be cross compatible if you were to replace all tabs in the output file with spaces. (or removing tabs entirely).
+In doing so it will replace tabs with \x09 and spaces with \x20. Hashcat supports this notation and the rules will be cross compatible if you were to replace all tabs in the output file with spaces. (or removing tabs entirely).
 
 ### Note on duplicate candidates
 Candidates matching the original word are never printed unless the `:` rule is specified. This is done to prevent duplicates. Example: Using `l` will only print candidates that have an uppercase character and as a result are different from the original plaintext. This can be unfavorable when working with rejection rules. In that case a `:` must be added as a first rule. An example is shown below where the goal is to reject all candidates containing the word "test". To match case toggled candidates the `l` rule is added before the match test. To ensure all candidates are printed and not just rules with uppercase the `:` rule is added, which will force all candidates to be printed.
@@ -73,7 +75,7 @@ $1      ]
 Rules generated or used by hashcat can contain partial contradictions or can be rewritten to be more efficient. This can happen in different ways, but for computational sake we won't entirely rewrite rules. Instead, we will look if the rule can be performed using less operations. The `--optimize-same-op` will remove these.
 
 ```bash
-ruleprocessorY.exe -r rule.txt --optimize-same-op --hashcat-input > optimized_rule.txt
+ruleprocessorY.exe -r rule.txt --optimize-same-op > optimized_rule.txt
 ```
 ```tsv
 $a      $b      ]
@@ -97,8 +99,8 @@ Finally we will look through all rules and find two rules that perform the same 
 Replace rules `s` that replace one word with another are skipped (`s/alpha/beta`), `s/a/beta` is taken into account.
 
 ```bash
-ruleprocessorY.exe -r rule.txt --optimize-similar-op --hashcat-input > optimized_rule.txt
-ruleprocessorY.exe -r rule.txt --optimize-all --hashcat-input > optimized_rule.txt
+ruleprocessorY.exe -r rule.txt --optimize-similar-op > optimized_rule.txt
+ruleprocessorY.exe -r rule.txt --optimize-all > optimized_rule.txt
 ```
 ```tsv
 $a  $b
@@ -128,8 +130,31 @@ $$      Z2
 ## Rule Optimizing / Comparison
 Additionally, you can compare one rule against another and optimize rule files against each other. Removing rules from file A that also appear in file B. To do so we can use the `--optimize-compare` flag. Example command to remove all rules from fordy10k.txt that also appear in best64.rule.
 ```bash
-ruleprocessorY.exe --hashcat-input --optimize-all -r fordy10k.txt --optimize-compare best64.rule
+ruleprocessorY.exe --hashcat-input --hashcat-output --optimize-all -r fordy10k.txt --optimize-compare best64.rule
 ```
+
+## Rule Optimizing with wordlists
+Although technically supported - the use is heavily discouraged. Due to the nature of the computing problem, it is nearly impossible to optimize rules for a specific wordlist without spending a significant amount of money or time. The following command will optimize the `dive.rule` file for the rockyou.txt wordlist. 
+However, expect to use about 350PB of RAM. 
+```bash
+ruleprocessorY.exe --hashcat-input --hashcat-output --optimize-all -r dive.rule -w rockyou.txt
+```
+
+Alternatively you can have it be computed on the fly. This uses approximately 7-8GB of RAM, but also takes significantly longer to process.
+In the end you will gain relatively little extra performance for all the time invested. If you wish to optimize using this, use a very small wordlist.
+```bash
+ruleprocessorY.exe --hashcat-input --hashcat-output --optimize-all -r dive.rule -w rockyou.txt --optimize-slow
+```
+
+## Rule Optimizing more
+It is possible (alternatively to specifying a wordlist as described above) to optimize a wordlist more. This will use a smaller 'validation dictionary'.
+Using this method will result in some loss of cracks / founds. In return, you will optimize the rules more. This can be favorable in a few scenarios when working with generated rules that work on edge-cases like `@\x02` and do not apply to 'normal passwords' commonly.
+
+**Use this with caution.**
+```bash
+ruleprocessorY.exe --hashcat-input --hashcat-output --optimize-all -r dive.rule -w rockyou.txt --optimized-words
+```
+
 
 ## Optimize debugging
 To debug what changes have been made, the `--optimize-debug` flag can be used. This will display what changes are made to STDOUT.
