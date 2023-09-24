@@ -123,7 +123,12 @@ std::string convert_from_hashcat(unsigned long line_counter, std::string rule) {
             // check if the rule is 3 characters wide
         else if (triple_wide.count(baseRule)) {
             // check for hex notation
-            if (rule.substr(offset + 1, 2) == "\\x" || rule.substr(offset + 2, 2) == "\\x") {
+
+            if (rule.length() >= (offset+9) && (rule.substr(offset + 1, 2) == "\\x" && rule.substr(offset + 5, 2) == "\\x")) {
+                formatted_rule += rule.substr(offset, 9) + '\t';
+                offset += 9;
+            }
+            else if (rule.length() >= (offset+6) && (rule.substr(offset + 1, 2) == "\\x" || rule.substr(offset + 2, 2) == "\\x")) {
                 formatted_rule += rule.substr(offset, 6) + '\t';
                 offset += 6;
             }
@@ -137,9 +142,13 @@ std::string convert_from_hashcat(unsigned long line_counter, std::string rule) {
             offset = 254;
             // error if the baseRule is unknown
         else {
-            std::cerr << "Unknown rule format on line " << line_counter << ": " << baseRule << ':' << rule << std::endl;
+            std::cerr << "Unknown rule function [" << line_counter << "]: \"" << baseRule << "\"" << std::endl;
             offset = 254;
         }
+    }
+    // Remove last \t
+    if (!formatted_rule.empty() && formatted_rule.back() == '\t') {
+        formatted_rule.pop_back();
     }
     return formatted_rule;
 }
@@ -1266,12 +1275,12 @@ int main(int argc, const char *argv[]) {
         std::vector<std::string> test_words;
         if(optimized_words) {
             for (int i = 0x20; i <= 0x7e; i++) {
-                test_words.emplace_back(15, char(i));
+                test_words.emplace_back(18, char(i));
             }
 
             std::string all_chars;
-            for (int i = 0x20; i <= 0x7e; i++) { // create a string with all possible hex values
-                for (int j = 0; j < 15; j++) {
+            for (int i = 0x20; i <= 0x7e; i++) { // create a string with all possible hex values (with less leniency)
+                for (int j = 4; j < 18; j++) {
                     all_chars.append(std::string(1, char(i)));
                     all_chars.append(std::string(1, 'a'));
                 }
@@ -1280,7 +1289,7 @@ int main(int argc, const char *argv[]) {
             reverse(all_chars.begin(), all_chars.end());
             test_words.push_back(all_chars);
 
-            for (int i = 3; i < 15; i++) { // create alphanumeric strings of different lengths
+            for (int i = 4; i < 18; i++) { // create alphanumeric strings of different lengths
                 std::string alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
                 if (i % 2 == 0) reverse(alphabet.begin(), alphabet.end()); // reverse every other alphabet
                 alphabet.erase(0, alphabet.length() - i - 1);
