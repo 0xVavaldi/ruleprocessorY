@@ -1479,7 +1479,7 @@ int main(int argc, const char *argv[]) {
 
                 queue_buffer.emplace_back(rule_set_pair);
                 if (queue_buffer.size() > 10) {
-                    std::unique_lock<std::mutex> lock(lock_obj); // push to queuedd
+                    std::unique_lock<std::mutex> lock(lock_obj); // push to queue
                     rule_queue.push(queue_buffer);
                     lock.unlock();
 
