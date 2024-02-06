@@ -1011,7 +1011,12 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    if(!(optimize_no_op || optimize_same_op || optimize_similar_op || !compare_rules.empty()) && (input_wordlist.empty() || input_rules.empty())) {
+    if((input_wordlist.empty() || input_rules.empty()) && !(optimize_no_op || optimize_same_op || optimize_similar_op || !compare_rules.empty())) {
+        show_usage();
+        return 1;
+    }
+
+    if(!compare_rules.empty() && input_rules.empty()) {
         show_usage();
         return 1;
     }
@@ -1474,7 +1479,7 @@ int main(int argc, const char *argv[]) {
 
                 queue_buffer.emplace_back(rule_set_pair);
                 if (queue_buffer.size() > 10) {
-                    std::unique_lock<std::mutex> lock(lock_obj); // push to queue
+                    std::unique_lock<std::mutex> lock(lock_obj); // push to queuedd
                     rule_queue.push(queue_buffer);
                     lock.unlock();
 
