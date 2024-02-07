@@ -73,11 +73,11 @@ static void show_usage() {
     << "\t--optimize-similar-op\t\tRemove one of the rules that performs a similar operation \"$1 ^1\" and \"^1 $1\"\n"
     << "\t--optimize-all\t\t\tAll the optimizations!\n"
     << "\t--optimize-compare COMPARE_FILE\tRemove rules from RULE_FILE found in COMPARE_FILE (like similar-op)\n"
-    << "\t--optimize-debug [DEBUG_FILE]\t\tShow the modified rules in STDOUT if output file is not specified\n"
+    << "\t--optimize-debug [DEBUG_FILE]\tShow the modified rules in STDOUT if output file is not specified\n"
     << "\t--optimize-slow\t\t\tDo not use memory to store data\n"
     << "\t--optimized-words\t\tLose cracks, but remove more rules. !USE_WITH_CAUTION!\n"
-    << "\t--show-rule [DELIMITER]\t\t\tPrint out the rule prior to the plain. Delimiter optional (not \\0 or -). Default: \\t\n\n"
-    << "Version: 1.2\n\n"
+    << "\t--show-rule [DELIMITER]\t\tPrint out the rule prior to the plain. Delimiter optional (not \\0 or -). Default: \\t\n\n"
+    << "Version: 1.2.1\n\n"
     << std::endl;
 }
 
