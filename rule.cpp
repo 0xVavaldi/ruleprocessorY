@@ -587,9 +587,10 @@ void Rule::process(std::string& plaintext) {
     return rule_processor(plaintext);
 }
 
-void Rule::print(bool error) {  // Error is false by default
+std::string Rule::print(int output_channel) {  // 0 = stdout, 1 = error, 2 = return
     std::string rule_1_copy = rule_value_1;
     std::string rule_2_copy = rule_value_2;
+    std::string debug_string;
 
     // Replace tabs with hex encoded tabs
     size_t start_pos = rule_1_copy.find('\t');
@@ -621,26 +622,41 @@ void Rule::print(bool error) {  // Error is false by default
                 rule_2_copy.replace(start_pos, 1, "\\/");
             }
 
-            if (error) {
+            if (output_channel == 0) {
                 std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
-            } else {
+            } else if (output_channel == 1) {
                 std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            } else if (output_channel == 2) {
+                debug_string += rule;
+                debug_string += '/';
+                debug_string += rule_1_copy;
+                debug_string += '/';
+                debug_string += rule_2_copy;
             }
 
         } else {
-            if (error) {
-                std::cerr << rule << rule_1_copy << rule_2_copy;
-            } else {
-                std::cout << rule << rule_1_copy << rule_2_copy;
+            if (output_channel == 0) {
+                std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            } else if (output_channel == 1) {
+                std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            } else if (output_channel == 2) {
+                debug_string += rule;
+                debug_string += rule_1_copy;
+                debug_string += rule_2_copy;
             }
         }
     } else {
-        if (error) {
-            std::cerr << rule << rule_1_copy << rule_2_copy;
-        } else {
-            std::cout << rule << rule_1_copy << rule_2_copy;
+        if (output_channel == 0) {
+            std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+        } else if (output_channel == 1) {
+            std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+        } else if (output_channel == 2) {
+            debug_string += rule;
+            debug_string += rule_1_copy;
+            debug_string += rule_2_copy;
         }
     }
+    return debug_string;
 }
 
 

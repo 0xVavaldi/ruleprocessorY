@@ -40,6 +40,20 @@ std::vector<std::string> split(const std::string& input_string, char delimiter) 
     return internal;
 }
 
+void debug_file_log(const std::string& debug_file_name, const std::string& message) {
+    std::ofstream debugFile(debug_file_name, std::ios::app);
+
+    if (!debugFile.is_open()) {
+        std::cerr << "Error opening debug file for appending!" << std::endl;
+        return;
+    }
+    debugFile << message;
+
+    // Close the file
+    debugFile.close();
+
+}
+
 bool sort_lineorder_rules(const std::pair<unsigned long ,std::vector<Rule>> &a, const std::pair<unsigned long ,std::vector<Rule>> &b)
 {
     return (a.first < b.first);
@@ -59,9 +73,10 @@ static void show_usage() {
     << "\t--optimize-similar-op\t\tRemove one of the rules that performs a similar operation \"$1 ^1\" and \"^1 $1\"\n"
     << "\t--optimize-all\t\t\tAll the optimizations!\n"
     << "\t--optimize-compare COMPARE_FILE\tRemove rules from RULE_FILE found in COMPARE_FILE (like similar-op)\n"
-    << "\t--optimize-debug\t\tShow the modified rules in STDOUT\n"
+    << "\t--optimize-debug [DEBUG_FILE]\t\tShow the modified rules in STDOUT if output file is not specified\n"
     << "\t--optimize-slow\t\t\tDo not use memory to store data\n"
     << "\t--optimized-words\t\tLose cracks, but remove more rules. !USE_WITH_CAUTION!\n"
+    << "\t--show-rule [DELIMITER]\t\t\tPrint out the rule prior to the plain. Delimiter optional (not \\0 or -). Default: \\t\n\n"
     << "Version: 1.2\n\n"
     << std::endl;
 }
@@ -82,6 +97,7 @@ int duplicates_removed_level_3 = 0;
 int redundant_removed = 0;
 bool is_processing{true};
 bool optimize_debug{false};
+std::string optimize_debug_file;
 std::vector<std::string> invalid_lines;
 
 // Convert from Hashcat to TSV format (for RuleProcessorY)
@@ -199,14 +215,24 @@ void process_stage1_thread(const std::vector<std::string>& test_words) {
             }
             // else
             redundant_removed++;
-            if (optimize_debug) {
+            if (optimize_debug) {  // Debug values
                 std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                std::cout << "Deleted:\t";
-                for (int i = 0; i < rule_set_pair.second.size(); i++) {
-                    rule_set_pair.second[i].print();
-                    if (i != rule_set_pair.second.size() - 1) std::cout << '\t';
+                if(!optimize_debug_file.empty()) {
+                    std::string debug_file_output_buffer = "Deleted:\t";
+                    for (int i = 0; i < rule_set_pair.second.size(); i++) {
+                        debug_file_output_buffer.append(rule_set_pair.second[i].print(2));
+                        if (i != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                    }
+                    debug_file_output_buffer += '\n';
+                    debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                } else {
+                    std::cout << "Deleted:\t";
+                    for (int i = 0; i < rule_set_pair.second.size(); i++) {
+                        rule_set_pair.second[i].print(2);
+                        if (i != rule_set_pair.second.size() - 1) std::cout << '\t';
+                    }
+                    std::cout << std::endl;
                 }
-                std::cout << std::endl;
                 new_lock.unlock();
             }
         }
@@ -278,7 +304,21 @@ void process_stage2_thread(const std::vector<std::string>& test_words) {
                         if (modify) {
                             found_new = true;
                             std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                            if(optimize_debug) {
+                            if(optimize_debug && !optimize_debug_file.empty()) {
+                                std::string debug_file_output_buffer = "Before:\t";
+                                for (Rule rule: rule_set_pair.second) {
+                                    debug_file_output_buffer.append(rule.print(2));
+                                    debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += '\n';
+                                debug_file_output_buffer += "After:\t";
+                                for (Rule rule: rule_power_set_item) {
+                                    debug_file_output_buffer.append(rule.print(2));
+                                    debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += '\n';
+                                debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                            } else if(optimize_debug) {
                                 std::cout << "Before:\t";
                                 for (Rule rule: rule_set_pair.second) {
                                     rule.print();
@@ -446,7 +486,16 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                         duplicates_removed_level_3_compare++;
 
                         std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                        if(optimize_debug) {
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer = "\nDeleted:\t";
+                            for(int j = 0; j < all_rules[rule_iterator].second.size(); j++) {
+                                debug_file_output_buffer.append(all_rules[rule_iterator].second[j].print(2));
+                                if(j != all_rules[rule_iterator].second.size()-1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += '\n';
+                            debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                        }
+                        else if(optimize_debug) {
                             std::cout << std::endl;
                             std::cout << "Deleted:\t";
                             for(int j = 0; j < all_rules[rule_iterator].second.size(); j++) {
@@ -507,7 +556,24 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                             good_rule_objects.emplace_back(rule_set_pair);
                             bad_rule_objects.emplace_back(rule_set_comparison_pair);
                         }
-                        if (optimize_debug) {
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer;
+                            if(!rule_set_is_good) debug_file_output_buffer = "Kept:\t\t";
+                            if(rule_set_is_good) debug_file_output_buffer = "Exists:\t\t";
+                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+
+                            debug_file_output_buffer += "\nDeleted:\t";
+                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                debug_file_output_buffer.append(rule_set_comparison_pair.second[j].print(2));
+                                if (j != rule_set_comparison_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += '\n';
+                            debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                        }
+                        else  if (optimize_debug) {
                             if(!rule_set_is_good) std::cout << "Kept:\t\t";
                             if(rule_set_is_good) std::cout << "Exists:\t\t";
                             for (int j = 0; j < rule_set_pair.second.size(); j++) {
@@ -540,7 +606,25 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                             good_rule_objects.emplace_back(rule_set_comparison_pair);
                             bad_rule_objects.emplace_back(rule_set_pair);
                         }
-                        if(optimize_debug) {
+
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer;
+                            if(!rule_set_is_good) debug_file_output_buffer = "Kept:\t\t";
+                            if(rule_set_is_good) debug_file_output_buffer = "Exists:\t\t";
+                            for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                debug_file_output_buffer.append(rule_set_comparison_pair.second[j].print(2));
+                                if (j != rule_set_comparison_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+
+                            debug_file_output_buffer += "\nDeleted:\t";
+                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += '\n';
+                            debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                        }
+                        else if(optimize_debug) {
                             if(!rule_set_is_good) std::cout << "Kept:\t\t";
                             if(rule_set_is_good) std::cout << "Exists:\t\t";
                             for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
@@ -579,14 +663,32 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                                 good_rule_objects.emplace_back(rule_set_pair);
                                 bad_rule_objects.emplace_back(rule_set_comparison_pair);
                             }
-                            if(optimize_debug) {
+
+                            if(optimize_debug && !optimize_debug_file.empty()) {
+                                std::string debug_file_output_buffer;
+                                if(!rule_set_is_good) debug_file_output_buffer = "Kept:\t\t";
+                                if(rule_set_is_good) debug_file_output_buffer = "Exists:\t\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                    if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+
+                                debug_file_output_buffer += "\nDeleted:\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_comparison_pair.second[j].print(2));
+                                    if (j != rule_set_comparison_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += '\n';
+                                debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                            }
+                            else if(optimize_debug) {
                                 if(!rule_set_is_good) std::cout << "Kept:\t\t";
                                 if(rule_set_is_good) std::cout << "Exists:\t\t";
-                                    for (int j = 0; j < rule_set_pair.second.size(); j++) {
-                                        rule_set_pair.second[j].print();
-                                        if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
-                                    }
-                                    std::cout << std::endl;
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    rule_set_pair.second[j].print();
+                                    if (j != rule_set_pair.second.size() - 1) std::cout << '\t';
+                                }
+                                std::cout << std::endl;
                                 std::cout << "Deleted:\t";
                                 for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
                                     rule_set_comparison_pair.second[j].print();
@@ -606,7 +708,22 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                                 bad_rule_objects.emplace_back(rule_set_pair);
                             }
 
-                            if(optimize_debug) {
+                            if(optimize_debug && !optimize_debug_file.empty()) {
+                                std::string debug_file_output_buffer = "Kept:\t\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_comparison_pair.second[j].print(2));
+                                    if (j != rule_set_comparison_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+
+                                debug_file_output_buffer += "\nDeleted:\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                    if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += '\n';
+                                debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                            }
+                            else if(optimize_debug) {
                                 std::cout << "Kept:\t\t";
                                 for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
                                     rule_set_comparison_pair.second[j].print();
@@ -698,7 +815,16 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                         duplicates_removed_level_3_compare++;
 
                         std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
-                        if(optimize_debug) {
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer = "Deleted:\t\t";
+                            for (int j = 0; j < all_rules[i].second.size(); j++) {
+                                debug_file_output_buffer.append(all_rules[i].second[j].print(2));
+                                if (j != all_rules[i].second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += '\n';
+                            debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                        }
+                        else if(optimize_debug) {
                             std::cout << "Deleted:\t";
                             for(int j = 0; j < all_rules[i].second.size(); j++) {
                                 all_rules[i].second[j].print();
@@ -772,7 +898,25 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                             bad_rule_objects.emplace_back(rule_set_comparison_pair);
                         }
                         good_lock.unlock();
-                        if(optimize_debug) {
+
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer;
+                            if(!rule_set_is_good) debug_file_output_buffer = "Kept:\t\t";
+                            if(rule_set_is_good) debug_file_output_buffer = "Exists:\t\t";
+                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+
+                            debug_file_output_buffer += "\nDeleted:\t";
+                            for (int j = 0; j < all_rules[i].second.size(); j++) {
+                                debug_file_output_buffer.append(all_rules[i].second[j].print(2));
+                                if (j != all_rules[i].second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += '\n';
+                            debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                        }
+                        else if(optimize_debug) {
                             if(!rule_set_is_good) std::cout << "Kept:\t\t";
                             if(rule_set_is_good) std::cout << "Exists:\t";
                             for (int j = 0; j < rule_set_pair.second.size(); j++) {
@@ -805,7 +949,38 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                             bad_rule_objects.emplace_back(rule_set_pair);
                         }
                         good_lock.unlock();
-                        if(optimize_debug) {
+
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer;
+                            if(rule_set_is_good) { // rule set is already good
+                                debug_file_output_buffer = "Exists:\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                    if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += "\tDeleted:\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_comparison_pair.second[j].print(2));
+                                    if (j != rule_set_comparison_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += '\n';
+                                debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                            } else {
+                                debug_file_output_buffer = "Kept:\t";
+                                for (int j = 0; j < rule_set_comparison_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_comparison_pair.second[j].print(2));
+                                    if (j != rule_set_comparison_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+
+                                debug_file_output_buffer += "\nDeleted:\t";
+                                for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                    debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                    if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                                }
+                                debug_file_output_buffer += '\n';
+                            }
+                        }
+                        else if(optimize_debug) {
                             if(rule_set_is_good) { // rule set is already good
                                 std::cout << "Exists:\t";
                                 for (int j = 0; j < rule_set_pair.second.size(); j++) {
@@ -867,7 +1042,23 @@ void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector
                                 bad_rule_objects.emplace_back(rule_set_pair);
                             }
                         }
-                        if(optimize_debug) {
+
+                        if(optimize_debug && !optimize_debug_file.empty()) {
+                            std::string debug_file_output_buffer;
+                            if(!rule_set_is_good) debug_file_output_buffer = "Kept:\t\t";
+                            if(rule_set_is_good) debug_file_output_buffer = "Exists:\t";
+                            for (int j = 0; j < rule_set_pair.second.size(); j++) {
+                                debug_file_output_buffer.append(rule_set_pair.second[j].print(2));
+                                if (j != rule_set_pair.second.size() - 1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += "\nDeleted:\t";
+                            for(int j = 0; j < all_rules[i].second.size(); j++) {
+                                debug_file_output_buffer.append(all_rules[i].second[j].print(2));
+                                if(j != all_rules[i].second.size()-1) debug_file_output_buffer += '\t';
+                            }
+                            debug_file_output_buffer += '\n';
+                            debug_file_log(optimize_debug_file, debug_file_output_buffer);
+                        } else if(optimize_debug) {
                             if(!rule_set_is_good) std::cout << "Kept:\t\t";
                             if(rule_set_is_good) std::cout << "Exists:\t";
                             for (int j = 0; j < rule_set_pair.second.size(); j++) {
@@ -919,6 +1110,7 @@ int main(int argc, const char *argv[]) {
     bool hashcat_input{false};
     bool hashcat_output{false};
     bool optimized_words{false};
+    char show_rule_delimiter = '\0';  // using null as False. This means null-bytes can not be used as delimiter.
     std::ios_base::sync_with_stdio(false); // unsync the IO of C and C++
     time_t absolute_start;
     time(&absolute_start);
@@ -979,6 +1171,14 @@ int main(int argc, const char *argv[]) {
             }
         }
 
+        if (std::string(argv[i]) == "--show-rule") {
+            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
+                show_rule_delimiter = argv[i + 1][0];
+            } else {
+                show_rule_delimiter = '\t';
+            }
+        }
+
         if (std::string(argv[i]) == "--delimiter") {
             if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
                 if(strlen(argv[i+1]) > 1) {
@@ -988,6 +1188,13 @@ int main(int argc, const char *argv[]) {
                 delimiter = argv[i + 1][0];
             } else {
                 no_delimiter = true;
+            }
+        }
+
+        if (std::string(argv[i]) == "--optimize-debug") {
+            optimize_debug = true;
+            if (i + 1 < argc && argv[i+1][0] != '-' && strlen(argv[i+1]) > 0) {
+                optimize_debug_file = argv[i+1];
             }
         }
 
@@ -1479,7 +1686,7 @@ int main(int argc, const char *argv[]) {
 
                 queue_buffer.emplace_back(rule_set_pair);
                 if (queue_buffer.size() > 10) {
-                    std::unique_lock<std::mutex> lock(lock_obj); // push to queue
+                    std::unique_lock<std::mutex> lock(lock_obj); // push to queuedd
                     rule_queue.push(queue_buffer);
                     lock.unlock();
 
@@ -1886,23 +2093,51 @@ int main(int argc, const char *argv[]) {
     char stream_buffer[4096];
     fin.rdbuf()->pubsetbuf(stream_buffer, sizeof(stream_buffer)); // set buffer for reading characters
     fin.open(input_wordlist);
-    while (std::getline(fin, file_line)) {
-        for (std::pair<unsigned long, std::vector<Rule>> &rule_pair: rule_objects) {
-            if (rule_pair.second[0].rule == ':') {
+
+    if(show_rule_delimiter == '\0') {  // Less neat code to have it be on the outer loop & optimize away extra operations. If equal to null, it is not set.
+        while (std::getline(fin, file_line)) {
+            for (std::pair<unsigned long, std::vector<Rule>> &rule_pair: rule_objects) {
+                if (rule_pair.second[0].rule == ':') {
+                    for (Rule &rule_item: rule_pair.second) {
+                        rule_item.process(file_line);
+                    }
+                    if (!file_line.empty()) {
+                        std::cout << file_line << '\n';
+                    }
+                    continue;
+                }
+                std::string new_plain{file_line};
                 for (Rule &rule_item: rule_pair.second) {
-                    rule_item.process(file_line);
+                    rule_item.process(new_plain);
                 }
-                if (!file_line.empty()) {
-                    std::cout << file_line << '\n';
+                if (file_line != new_plain && !new_plain.empty()) {
+                    std::cout << new_plain << '\n';
                 }
-                continue;
             }
-            std::string new_plain{file_line};
-            for (Rule &rule_item: rule_pair.second) {
-                rule_item.process(new_plain);
-            }
-            if (file_line != new_plain && !new_plain.empty()) {
-                std::cout << new_plain << '\n';
+        }
+    } else {  // Show processed plains + rules
+        while (std::getline(fin, file_line)) {
+            for (std::pair<unsigned long, std::vector<Rule>> &rule_pair: rule_objects) {
+                if (rule_pair.second[0].rule == ':') {
+                    for (Rule &rule_item: rule_pair.second) {
+                        rule_item.process(file_line);
+                    }
+                    if (!file_line.empty()) {
+                        std::cout << ":" << show_rule_delimiter << file_line << '\n';
+                    }
+                    continue;
+                }
+                std::string new_plain{file_line};
+                for (Rule &rule_item: rule_pair.second) {
+                    rule_item.process(new_plain);
+                }
+                if (file_line != new_plain && !new_plain.empty()) {
+                    for (Rule &rule_item: rule_pair.second) {
+                        rule_item.print();
+                        std::cout << show_rule_delimiter;
+                    }
+                    std::cout << new_plain << '\n';
+                }
             }
         }
     }
