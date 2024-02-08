@@ -623,9 +623,9 @@ std::string Rule::print(int output_channel) {  // 0 = stdout, 1 = error, 2 = ret
             }
 
             if (output_channel == 0) {
-                std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cerr << rule << rule_1_copy << rule_2_copy;
             } else if (output_channel == 1) {
-                std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cout << rule << rule_1_copy << rule_2_copy;
             } else if (output_channel == 2) {
                 debug_string += rule;
                 debug_string += '/';
@@ -636,9 +636,9 @@ std::string Rule::print(int output_channel) {  // 0 = stdout, 1 = error, 2 = ret
 
         } else {
             if (output_channel == 0) {
-                std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cerr << rule << rule_1_copy << rule_2_copy;
             } else if (output_channel == 1) {
-                std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cout << rule << rule_1_copy << rule_2_copy;
             } else if (output_channel == 2) {
                 debug_string += rule;
                 debug_string += rule_1_copy;
@@ -647,9 +647,9 @@ std::string Rule::print(int output_channel) {  // 0 = stdout, 1 = error, 2 = ret
         }
     } else {
         if (output_channel == 0) {
-            std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            std::cerr << rule << rule_1_copy << rule_2_copy;
         } else if (output_channel == 1) {
-            std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+            std::cout << rule << rule_1_copy << rule_2_copy;
         } else if (output_channel == 2) {
             debug_string += rule;
             debug_string += rule_1_copy;
