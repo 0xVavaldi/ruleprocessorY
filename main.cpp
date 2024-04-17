@@ -160,6 +160,7 @@ std::string convert_from_hashcat(unsigned long line_counter, std::string rule) {
         else {
             std::cerr << "Unknown rule function [" << line_counter << "]: \"" << baseRule << "\"" << std::endl;
             offset = 254;
+            return "!!!INVALID_RULE!!!";
         }
     }
     // Remove last \t
@@ -1187,6 +1188,7 @@ int main(int argc, const char *argv[]) {
                 }
                 delimiter = argv[i + 1][0];
             } else {
+                std::cerr << "You did not specify a delimiter. Using the default delimiter." << std::endl;
                 no_delimiter = true;
             }
         }
@@ -1271,6 +1273,11 @@ int main(int argc, const char *argv[]) {
         }
         if(hashcat_input) {
             line = convert_from_hashcat(line_counter, line);
+            if(line == "!!!INVALID_RULE!!!") {
+                invalid_lines.push_back(std::move(line));
+                line_counter++;
+                continue;
+            }
         }
         std::string unescaped_line;
         // Unescape
