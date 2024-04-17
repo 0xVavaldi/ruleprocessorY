@@ -157,7 +157,7 @@ ruleprocessorY.exe --hashcat-input --hashcat-output --optimize-all -r dive.rule 
 
 
 ## Optimize debugging
-To debug what changes have been made, the `--optimize-debug` flag can be used. This will display what changes are made to STDOUT.
+To debug what changes have been made, the `--optimize-debug` flag can be used. This will display what changes are made to STDERR by default. Adding a file name can force the output to a text-file. `--optimize-debug debug.txt`.
 Example output:
 ```yml
 Before: $!      o9H     x27
