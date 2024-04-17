@@ -78,7 +78,7 @@ static void show_usage() {
     << "\t--optimized-words\t\tLose cracks, but remove more rules. !USE_WITH_CAUTION!\n"
     << "\t--show-rule [DELIMITER]\t\tPrint out the rule prior to the plain. Delimiter optional (not \\0 or -). Default: \\t\n\n"
     << "\t--format-rules\t\tPerform no actions, only format rules.\n"
-    << "Version: 1.3\n\n"
+    << "Version: 1.3.1\n\n"
     << std::endl;
 }
 
