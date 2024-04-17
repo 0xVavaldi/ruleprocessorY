@@ -19,7 +19,7 @@ public:
     bool invalid_rule;
 
     Rule(char input_rule, const std::string &input_rule_value_1, const std::string &input_rule_value_2);
-    std::string print(int output_channel=0);
+    std::string print(int output_channel=0, bool hashcat_output=false);
     void process(std::string& plaintext);
     std::function<void(std::string&)> build_rule_processor();
     bool operator==(const Rule& rhs) const;

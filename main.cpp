@@ -229,7 +229,7 @@ void process_stage1_thread(const std::vector<std::string>& test_words) {
                 } else {
                     std::cout << "Deleted:\t";
                     for (int i = 0; i < rule_set_pair.second.size(); i++) {
-                        rule_set_pair.second[i].print(2);
+                        rule_set_pair.second[i].print();
                         if (i != rule_set_pair.second.size() - 1) std::cout << '\t';
                     }
                     std::cout << std::endl;
@@ -500,7 +500,7 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
                             std::cout << std::endl;
                             std::cout << "Deleted:\t";
                             for(int j = 0; j < all_rules[rule_iterator].second.size(); j++) {
-                                all_rules[rule_iterator].second[j].print();
+                                all_rules[rule_iterator].second[j].print(0);
                                 if(j != all_rules[rule_iterator].second.size()-1) std::cout << '\t';
                             }
                             std::cout << std::endl;
@@ -755,7 +755,7 @@ void process_stage3_thread(std::vector<std::pair<unsigned long, std::vector<Rule
     }
 }
 
-void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_rules, std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_compare_rules, const std::vector<std::string>& test_words, bool optimize_similar_op) {
+void process_stage3_thread_slow(std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_rules, std::vector<std::pair<unsigned long, std::vector<Rule>>>& all_compare_rules, const std::vector<std::string>& test_words, const bool optimize_similar_op) {
     // todo possible rewrite to check feasibility of file memory
     while(!rule_queue_stage_3.empty() || is_processing) {
         std::unique_lock<std::mutex> lock(lock_obj);
@@ -2054,7 +2054,7 @@ int main(int argc, const char *argv[]) {
                 line_counter++;
             }
             for(int i = 0; i < rule_pairs.second.size(); i++) {
-                rule_pairs.second[i].print();
+                rule_pairs.second[i].print(0, hashcat_output);
                 if(i != rule_pairs.second.size()-1) {
                     if(hashcat_output) {
                         std::cout << ' '; // hashcat formatting
@@ -2140,7 +2140,7 @@ int main(int argc, const char *argv[]) {
                 }
                 if (file_line != new_plain && !new_plain.empty()) {
                     for (Rule &rule_item: rule_pair.second) {
-                        rule_item.print();
+                        rule_item.print(0, hashcat_output);
                         std::cout << show_rule_delimiter;
                     }
                     std::cout << new_plain << '\n';

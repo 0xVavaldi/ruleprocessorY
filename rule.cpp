@@ -587,7 +587,7 @@ void Rule::process(std::string& plaintext) {
     return rule_processor(plaintext);
 }
 
-std::string Rule::print(int output_channel) {  // 0 = stdout, 1 = error, 2 = return
+std::string Rule::print(int output_channel, bool hashcat_output) {  // 0 = stdout, 1 = error, 2 = return
     std::string rule_1_copy = rule_value_1;
     std::string rule_2_copy = rule_value_2;
     std::string debug_string;
@@ -601,60 +601,103 @@ std::string Rule::print(int output_channel) {  // 0 = stdout, 1 = error, 2 = ret
     if(start_pos != std::string::npos) {
         rule_2_copy.replace(start_pos, 1, "\\x09");
     }
-//    start_pos = rule_1_copy.find(' ');
-//    if(start_pos != std::string::npos) {
-//        rule_1_copy.replace(start_pos, 1, "\\x20");
-//    }
-//    start_pos = rule_2_copy.find(' ');
-//    if(start_pos != std::string::npos) {
-//        rule_2_copy.replace(start_pos, 1, "\\x20");
-//    }
 
-    if(Rule::rule_identify(rule) == 3) {
-        if(rule_value_1.size() > 1) { // intentionally take rule_value_1 to not take escapes into account.
-            start_pos = rule_1_copy.find('/');
-            if(start_pos != std::string::npos) {
-                rule_1_copy.replace(start_pos, 1, "\\/");
-            }
+    if(hashcat_output) {
+        start_pos = rule_1_copy.find(' ');
+        if(start_pos != std::string::npos) {
+            rule_1_copy.replace(start_pos, 1, "\\x20");
+        }
+        start_pos = rule_2_copy.find(' ');
+        if(start_pos != std::string::npos) {
+            rule_2_copy.replace(start_pos, 1, "\\x20");
+        }
+    }
 
-            start_pos = rule_2_copy.find('/');
-            if(start_pos != std::string::npos) {
-                rule_2_copy.replace(start_pos, 1, "\\/");
-            }
-
+    switch(Rule::rule_identify(rule)) {
+        case 1:
             if (output_channel == 0) {
-                std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cout << rule;
             } else if (output_channel == 1) {
-                std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cerr << rule;
             } else if (output_channel == 2) {
                 debug_string += rule;
-                debug_string += '/';
-                debug_string += rule_1_copy;
-                debug_string += '/';
-                debug_string += rule_2_copy;
             }
-
-        } else {
+            break;
+        case 2:
             if (output_channel == 0) {
-                std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cout << rule << rule_1_copy;
             } else if (output_channel == 1) {
-                std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                std::cerr << rule << rule_1_copy;
             } else if (output_channel == 2) {
                 debug_string += rule;
                 debug_string += rule_1_copy;
-                debug_string += rule_2_copy;
             }
-        }
-    } else {
-        if (output_channel == 0) {
-            std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
-        } else if (output_channel == 1) {
-            std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
-        } else if (output_channel == 2) {
-            debug_string += rule;
-            debug_string += rule_1_copy;
-            debug_string += rule_2_copy;
-        }
+            break;
+        case 3:
+            if (rule_value_1.size() > 1) {  // if the first rule is multi-byte
+                start_pos = rule_1_copy.find('/');
+                if (start_pos != std::string::npos) {
+                    rule_1_copy.replace(start_pos, 1, "\\/");
+                }
+
+                start_pos = rule_2_copy.find('/');
+                if (start_pos != std::string::npos) {
+                    rule_2_copy.replace(start_pos, 1, "\\/");
+                }
+
+                if (output_channel == 0) {
+                    std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                } else if (output_channel == 1) {
+                    std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                } else if (output_channel == 2) {
+                    debug_string += rule;
+                    debug_string += '/';
+                    debug_string += rule_1_copy;
+                    debug_string += '/';
+                    debug_string += rule_2_copy;
+                }
+            } else if (rule_value_2.size() > 1) {  // if the second rule is multi-byte
+                start_pos = rule_1_copy.find('/');
+                if (start_pos != std::string::npos) {
+                    rule_1_copy.replace(start_pos, 1, "\\/");
+                }
+
+                start_pos = rule_2_copy.find('/');
+                if (start_pos != std::string::npos) {
+                    rule_2_copy.replace(start_pos, 1, "\\/");
+                }
+
+                if (output_channel == 0) {
+                    if (hashcat_output) {
+                        std::cout << rule << rule_1_copy << rule_2_copy;
+                    } else {
+                        std::cout << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                    }
+                } else if (output_channel == 1) {
+                    if (hashcat_output) {
+                        std::cerr << rule << rule_1_copy << rule_2_copy;
+                    } else {
+                        std::cerr << rule << '/' << rule_1_copy << '/' << rule_2_copy;
+                    }
+                } else if (output_channel == 2) {
+                    debug_string += rule;
+                    if (!hashcat_output) debug_string += '/';
+                    debug_string += rule_1_copy;
+                    if (!hashcat_output) debug_string += '/';
+                    debug_string += rule_2_copy;
+                }
+            } else { // rule 1 is not multi-byte
+                if (output_channel == 0) {
+                    std::cout << rule << rule_1_copy << rule_2_copy;
+                } else if (output_channel == 1) {
+                    std::cerr << rule << rule_1_copy << rule_2_copy;
+                } else if (output_channel == 2) {
+                    debug_string += rule;
+                    debug_string += rule_1_copy;
+                    debug_string += rule_2_copy;
+                }
+            }
+            break;
     }
     return debug_string;
 }
