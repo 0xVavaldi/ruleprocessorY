@@ -1227,7 +1227,7 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    if((input_wordlist.empty() || input_rules.empty()) && !(optimize_no_op || optimize_same_op || optimize_similar_op || !compare_rules.empty())) {
+    if((input_wordlist.empty() || input_rules.empty()) && !(optimize_no_op || optimize_same_op || optimize_similar_op || !compare_rules.empty()) && !format_rules) {
         show_usage();
         return 1;
     }
@@ -1521,7 +1521,6 @@ int main(int argc, const char *argv[]) {
         }
         return 0;
     }
-
 
     if(optimize_no_op || optimize_same_op || (optimize_similar_op || !compare_rule_objects.empty())) {
         size_t original_rule_objects_size = rule_objects.size();
