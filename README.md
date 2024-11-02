@@ -192,3 +192,6 @@ Deleted:        $l      $l      $o      K
 ```
 
 The action when a new rule is added is not displayed to not overload the debug output. This can be re-enabled in the code by searching for "Kept new" in main.cpp
+
+**Credits**
+p͞é͜ng̸u̡͘iń͢͞k̴è͢͜e̛p͠è͢r for helping test, debug, and help write the hashcat rule parser.
