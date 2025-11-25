@@ -1714,6 +1714,10 @@ int main(int argc, const char *argv[]) {
                         i.print(true);
                     }
                     std::cerr << std::endl;
+                    
+                    std::unique_lock<std::mutex> new_lock(result_rule_mutex); // Lock
+                    good_rule_objects.emplace_back(rule_set_pair);
+                    new_lock.unlock(); // Unlock
                     continue;
                 }
 
